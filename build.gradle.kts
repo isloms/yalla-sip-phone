@@ -17,6 +17,7 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.1")
 
     // Serialization (Decompose screen configs)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
