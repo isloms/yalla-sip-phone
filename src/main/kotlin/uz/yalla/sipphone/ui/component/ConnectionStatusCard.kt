@@ -29,11 +29,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.ConnectionState
-import uz.yalla.sipphone.ui.theme.OnSuccessContainer
-import uz.yalla.sipphone.ui.theme.SuccessContainer
+import uz.yalla.sipphone.ui.theme.LocalExtendedColors
 
 @Composable
 fun ConnectionStatusCard(state: ConnectionState, modifier: Modifier = Modifier) {
+    val extendedColors = LocalExtendedColors.current
     AnimatedVisibility(
         visible = state !is ConnectionState.Idle,
         enter = fadeIn(tween(300)) + slideInVertically(
@@ -45,7 +45,7 @@ fun ConnectionStatusCard(state: ConnectionState, modifier: Modifier = Modifier) 
         val containerColor by animateColorAsState(
             targetValue = when (state) {
                 is ConnectionState.Registering -> MaterialTheme.colorScheme.secondaryContainer
-                is ConnectionState.Registered -> SuccessContainer
+                is ConnectionState.Registered -> extendedColors.successContainer
                 is ConnectionState.Failed -> MaterialTheme.colorScheme.errorContainer
                 is ConnectionState.Idle -> Color.Transparent
             }, animationSpec = tween(300)
@@ -53,7 +53,7 @@ fun ConnectionStatusCard(state: ConnectionState, modifier: Modifier = Modifier) 
         val contentColor by animateColorAsState(
             targetValue = when (state) {
                 is ConnectionState.Registering -> MaterialTheme.colorScheme.onSecondaryContainer
-                is ConnectionState.Registered -> OnSuccessContainer
+                is ConnectionState.Registered -> extendedColors.onSuccessContainer
                 is ConnectionState.Failed -> MaterialTheme.colorScheme.onErrorContainer
                 is ConnectionState.Idle -> Color.Transparent
             }, animationSpec = tween(300)
