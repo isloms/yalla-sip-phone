@@ -5,7 +5,7 @@ import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.pop
-import com.arkivanov.decompose.router.stack.push
+import com.arkivanov.decompose.router.stack.pushNew
 import com.arkivanov.decompose.value.Value
 import uz.yalla.sipphone.feature.dialer.DialerComponent
 import uz.yalla.sipphone.feature.registration.RegistrationComponent
@@ -31,7 +31,7 @@ class RootComponent(
     private fun createChild(screen: Screen, context: ComponentContext): Child =
         when (screen) {
             is Screen.Registration -> Child.Registration(
-                registrationFactory(context) { navigation.push(Screen.Dialer) }
+                registrationFactory(context) { navigation.pushNew(Screen.Dialer) }
             )
             is Screen.Dialer -> Child.Dialer(
                 dialerFactory(context) { navigation.pop() }

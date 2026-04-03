@@ -24,7 +24,7 @@ class DialerComponent(
         scope.launch {
             sipEngine.registrationState
                 .drop(1) // skip current value (Registered)
-                .first { it is RegistrationState.Idle }
+                .first { it is RegistrationState.Idle || it is RegistrationState.Failed }
             onDisconnected()
         }
     }

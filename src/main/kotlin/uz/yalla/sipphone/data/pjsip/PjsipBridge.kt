@@ -56,6 +56,8 @@ class PjsipBridge : SipEngine {
     private var pollJob: Job? = null
     private var logWriter: PjsipLogWriter? = null // must keep reference alive!
 
+    internal fun isDestroyed(): Boolean = destroyed.get()
+
     internal fun updateRegistrationState(state: RegistrationState) {
         _registrationState.value = state
     }
@@ -134,21 +136,21 @@ class PjsipBridge : SipEngine {
     }
 
     override suspend fun register(credentials: SipCredentials): Result<Unit> = withContext(pjDispatcher) {
+        _registrationState.value = RegistrationState.Registering
+
+        // Cleanup previous account — must delete() to prevent GC finalizer crash
+        account?.shutdown()
+        account?.delete()
+        account = null
+
+        val accountConfig = AccountConfig()
+        val authCred = AuthCredInfo("digest", "*", credentials.username, 0, credentials.password)
         try {
-            _registrationState.value = RegistrationState.Registering
-
-            // Cleanup previous account — must delete() to prevent GC finalizer crash
-            account?.shutdown()
-            account?.delete()
-            account = null
-
-            val accountConfig = AccountConfig()
             val sipUri = "sip:${credentials.username}@${credentials.server}"
 
             accountConfig.idUri = sipUri
             accountConfig.regConfig.registrarUri = "sip:${credentials.server}:${credentials.port}"
 
-            val authCred = AuthCredInfo("digest", "*", credentials.username, 0, credentials.password)
             accountConfig.sipConfig.authCreds.add(authCred)
 
             // NAT: disabled for LAN deployment
@@ -160,14 +162,14 @@ class PjsipBridge : SipEngine {
                 create(accountConfig, true)
             }
 
-            accountConfig.delete() // SWIG cleanup
-            authCred.delete()      // SWIG cleanup
-
             Result.success(Unit)
         } catch (e: Exception) {
             logger.error(e) { "Registration failed" }
             _registrationState.value = RegistrationState.Failed("Registration error: ${e.message}")
             Result.failure(e)
+        } finally {
+            accountConfig.delete() // SWIG cleanup
+            authCred.delete()      // SWIG cleanup
         }
     }
 
@@ -204,15 +206,15 @@ class PjsipBridge : SipEngine {
             account?.delete() // SWIG cleanup before libDestroy
             account = null
 
+            logWriter?.delete()
+            logWriter = null
+
             try {
                 endpoint.libDestroy()
                 endpoint.delete() // release SWIG pointer
             } catch (e: Exception) {
                 logger.error(e) { "Error during pjsip destroy" }
             }
-
-            logWriter?.delete()
-            logWriter = null
 
             _registrationState.value = RegistrationState.Idle
         }

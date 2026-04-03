@@ -80,6 +80,14 @@ fun DialerScreen(component: DialerComponent) {
                 }
             }
         }
-        else -> { /* loading/error handled by navigation */ }
+        else -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "Connection lost \u2014 returning...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
     }
 }

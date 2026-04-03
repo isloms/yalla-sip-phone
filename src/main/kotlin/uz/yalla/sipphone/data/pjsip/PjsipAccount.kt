@@ -10,6 +10,7 @@ private val logger = KotlinLogging.logger {}
 class PjsipAccount(private val bridge: PjsipBridge) : Account() {
 
     override fun onRegState(prm: OnRegStateParam) {
+        if (bridge.isDestroyed()) return
         try {
             val info = getInfo()
             val code = prm.code

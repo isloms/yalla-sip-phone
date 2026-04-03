@@ -71,6 +71,7 @@ fun YallaSipPhoneTheme(content: @Composable () -> Unit) {
         // Provide extended colors
         CompositionLocalProvider(
             LocalExtendedColors provides DefaultExtendedColors,
+            LocalAppTokens provides AppTokens(),
             content = content,
         )
     }

@@ -50,8 +50,12 @@ fun main() {
 
     // 3. Add shutdown hook (defense against force-kill)
     Runtime.getRuntime().addShutdownHook(Thread {
-        runBlocking {
-            withTimeoutOrNull(2000) { sipEngine.destroy() }
+        try {
+            runBlocking {
+                withTimeoutOrNull(2000) { sipEngine.destroy() }
+            }
+        } catch (_: Exception) {
+            // JVM shutting down, best-effort
         }
     })
 
