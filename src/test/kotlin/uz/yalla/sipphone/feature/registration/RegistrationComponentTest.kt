@@ -42,21 +42,23 @@ class RegistrationComponentTest {
         val lifecycle = LifecycleRegistry()
         lifecycle.resume()
         val context = DefaultComponentContext(lifecycle = lifecycle)
-        val component = RegistrationComponent(context, sipEngine, appSettings, onRegistered)
+        val component = RegistrationComponent(
+            componentContext = context,
+            sipEngine = sipEngine,
+            appSettings = appSettings,
+            onRegistered = onRegistered,
+            ioDispatcher = testDispatcher,
+        )
         return component to sipEngine
     }
 
     @Test
-    fun `onConnect calls register on SipEngine`() = runTest {
+    fun `connect calls register on SipEngine`() = runTest {
         val (component, engine) = createComponent()
         val credentials = SipCredentials("192.168.0.22", 5060, "102", "pass")
 
-        component.onConnect(credentials)
-        // withContext(Dispatchers.IO) runs on a real thread; spin-wait until register fires
-        val deadline = System.currentTimeMillis() + 2_000
-        while (engine.lastCredentials == null && System.currentTimeMillis() < deadline) {
-            Thread.sleep(10)
-        }
+        component.connect(credentials)
+        advanceUntilIdle()
 
         assertNotNull(engine.lastCredentials)
         assertEquals("102", engine.lastCredentials?.username)
@@ -67,8 +69,7 @@ class RegistrationComponentTest {
         var registeredCount = 0
         val engine = FakeSipEngine()
         val (_, _) = createComponent(sipEngine = engine, onRegistered = { registeredCount++ })
-        // Let init's IO coroutine finish before proceeding
-        Thread.sleep(50)
+        advanceUntilIdle()
 
         engine.simulateRegistered()
         advanceUntilIdle()
@@ -77,11 +78,11 @@ class RegistrationComponentTest {
     }
 
     @Test
-    fun `onCancel calls unregister`() = runTest {
+    fun `cancelRegistration calls unregister`() = runTest {
         val (component, engine) = createComponent()
         engine.simulateRegistered()
 
-        component.onCancel()
+        component.cancelRegistration()
         advanceUntilIdle()
 
         assertIs<uz.yalla.sipphone.domain.RegistrationState.Idle>(engine.registrationState.value)

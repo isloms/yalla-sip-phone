@@ -29,7 +29,7 @@ class DialerComponent(
         }
     }
 
-    fun onDisconnect() {
+    fun disconnect() {
         scope.launch { sipEngine.unregister() }
     }
 }

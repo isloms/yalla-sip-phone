@@ -20,14 +20,14 @@ data class ExtendedColors(
     val onSuccessContainer: Color,
 )
 
-val LocalExtendedColors = staticCompositionLocalOf {
-    ExtendedColors(
-        success = Color(0xFF2E7D32),
-        onSuccess = Color.White,
-        successContainer = Color(0xFFD4EDDA),
-        onSuccessContainer = Color(0xFF155724),
-    )
-}
+private val DefaultExtendedColors = ExtendedColors(
+    success = Color(0xFF2E7D32),
+    onSuccess = Color.White,
+    successContainer = Color(0xFFD4EDDA),
+    onSuccessContainer = Color(0xFF155724),
+)
+
+val LocalExtendedColors = staticCompositionLocalOf { DefaultExtendedColors }
 
 private val SeedColor = Color(0xFF1A5276) // Professional blue
 
@@ -70,12 +70,7 @@ fun YallaSipPhoneTheme(content: @Composable () -> Unit) {
     ) {
         // Provide extended colors
         CompositionLocalProvider(
-            LocalExtendedColors provides ExtendedColors(
-                success = Color(0xFF2E7D32),
-                onSuccess = Color.White,
-                successContainer = Color(0xFFD4EDDA),
-                onSuccessContainer = Color(0xFF155724),
-            ),
+            LocalExtendedColors provides DefaultExtendedColors,
             content = content,
         )
     }

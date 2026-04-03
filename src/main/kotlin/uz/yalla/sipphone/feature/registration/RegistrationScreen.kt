@@ -47,7 +47,7 @@ fun RegistrationScreen(component: RegistrationComponent) {
         val errors = validateForm(formState)
         formErrors = errors
         if (!errors.hasErrors) {
-            component.onConnect(
+            component.connect(
                 SipCredentials(
                     server = formState.server.trim(),
                     port = formState.port.toIntOrNull() ?: 5060,
@@ -74,7 +74,10 @@ fun RegistrationScreen(component: RegistrationComponent) {
                 formState = formState,
                 errors = formErrors,
                 enabled = formEnabled,
-                onFormChange = { component.updateFormState(it); formErrors = FormErrors() },
+                onFormChange = {
+                    component.updateFormState(it)
+                    formErrors = FormErrors()
+                },
                 onSubmit = submitAction,
                 modifier = Modifier.alpha(formAlpha),
             )
@@ -83,7 +86,7 @@ fun RegistrationScreen(component: RegistrationComponent) {
                 state = registrationState,
                 onConnect = submitAction,
                 onDisconnect = { /* handled by navigation, not shown on this screen when Registered */ },
-                onCancel = component::onCancel,
+                onCancel = component::cancelRegistration,
             )
             Spacer(Modifier.height(16.dp))
             ConnectionStatusCard(state = registrationState)

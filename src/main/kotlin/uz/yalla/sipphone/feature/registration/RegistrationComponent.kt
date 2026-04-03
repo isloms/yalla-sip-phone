@@ -2,10 +2,12 @@ package uz.yalla.sipphone.feature.registration
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,6 +21,7 @@ class RegistrationComponent(
     private val sipEngine: SipEngine,
     private val appSettings: AppSettings,
     private val onRegistered: () -> Unit,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ComponentContext by componentContext {
 
     private val _formState = MutableStateFlow(FormState())
@@ -31,7 +34,7 @@ class RegistrationComponent(
 
     init {
         // Load last-used credentials
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             appSettings.loadCredentials()?.let { creds ->
                 _formState.value = FormState(
                     server = creds.server,
@@ -44,19 +47,19 @@ class RegistrationComponent(
 
         // Navigate once on successful registration - .first {} completes after one match
         scope.launch {
-            sipEngine.registrationState.first { it is RegistrationState.Registered }
+            sipEngine.registrationState.drop(1).first { it is RegistrationState.Registered }
             onRegistered()
         }
     }
 
-    fun onConnect(credentials: SipCredentials) {
+    fun connect(credentials: SipCredentials) {
         scope.launch {
-            withContext(Dispatchers.IO) { appSettings.saveCredentials(credentials) }
+            withContext(ioDispatcher) { appSettings.saveCredentials(credentials) }
             sipEngine.register(credentials)
         }
     }
 
-    fun onCancel() {
+    fun cancelRegistration() {
         scope.launch { sipEngine.unregister() }
     }
 

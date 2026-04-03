@@ -71,7 +71,7 @@ fun DialerScreen(component: DialerComponent) {
 
                 // BOTTOM: Actions
                 FilledTonalButton(
-                    onClick = component::onDisconnect,
+                    onClick = component::disconnect,
                     modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
                 ) {
                     Icon(Icons.Filled.CallEnd, contentDescription = null)

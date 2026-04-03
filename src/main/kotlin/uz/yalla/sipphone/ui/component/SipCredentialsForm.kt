@@ -45,7 +45,8 @@ fun SipCredentialsForm(
 ) {
     val submitOnEnter = Modifier.onKeyEvent { event ->
         if (event.key == Key.Enter && event.type == KeyEventType.KeyDown && enabled) {
-            onSubmit(); true
+            onSubmit()
+            true
         } else {
             false
         }

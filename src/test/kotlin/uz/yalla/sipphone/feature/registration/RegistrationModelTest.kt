@@ -45,7 +45,9 @@ class RegistrationModelTest {
 
     @Test
     fun `port 65536 shows error`() {
-        val errors = validateForm(FormState(server = "192.168.0.22", port = "65536", username = "102", password = "pass"))
+        val errors = validateForm(
+            FormState(server = "192.168.0.22", port = "65536", username = "102", password = "pass"),
+        )
         assertNotNull(errors.port)
         assertEquals("Port must be 1-65535", errors.port)
     }
@@ -58,7 +60,9 @@ class RegistrationModelTest {
 
     @Test
     fun `port 65535 is valid`() {
-        val errors = validateForm(FormState(server = "192.168.0.22", port = "65535", username = "102", password = "pass"))
+        val errors = validateForm(
+            FormState(server = "192.168.0.22", port = "65535", username = "102", password = "pass"),
+        )
         assertNull(errors.port)
     }
 
@@ -78,7 +82,9 @@ class RegistrationModelTest {
 
     @Test
     fun `valid form produces no errors`() {
-        val errors = validateForm(FormState(server = "192.168.0.22", port = "5060", username = "102", password = "pass"))
+        val errors = validateForm(
+            FormState(server = "192.168.0.22", port = "5060", username = "102", password = "pass"),
+        )
         assertNull(errors.server)
         assertNull(errors.port)
         assertNull(errors.username)

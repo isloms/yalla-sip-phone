@@ -1,6 +1,5 @@
 package uz.yalla.sipphone
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.DpSize
@@ -23,8 +22,6 @@ import uz.yalla.sipphone.feature.dialer.DialerComponent
 import uz.yalla.sipphone.feature.registration.RegistrationComponent
 import uz.yalla.sipphone.navigation.RootComponent
 import uz.yalla.sipphone.navigation.RootContent
-import uz.yalla.sipphone.ui.theme.AppTokens
-import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 
 private val logger = KotlinLogging.logger {}
@@ -95,9 +92,7 @@ fun main() {
             LifecycleController(lifecycle, windowState)
 
             YallaSipPhoneTheme {
-                CompositionLocalProvider(LocalAppTokens provides AppTokens()) {
-                    RootContent(rootComponent)
-                }
+                RootContent(rootComponent)
             }
         }
     }

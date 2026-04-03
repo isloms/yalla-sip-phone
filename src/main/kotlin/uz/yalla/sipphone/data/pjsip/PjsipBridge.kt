@@ -21,7 +21,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.pjsip.pjsua2.AccountConfig
 import org.pjsip.pjsua2.AuthCredInfo
 import org.pjsip.pjsua2.Endpoint
@@ -38,6 +37,7 @@ private val logger = KotlinLogging.logger {}
 
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class PjsipBridge : SipEngine {
+    private val destroyed = java.util.concurrent.atomic.AtomicBoolean(false)
     private val pjDispatcher = newSingleThreadContext("pjsip-event-loop")
 
     private val _registrationState = MutableStateFlow<RegistrationState>(RegistrationState.Idle)
@@ -183,6 +183,7 @@ class PjsipBridge : SipEngine {
     }
 
     override suspend fun destroy() {
+        if (!destroyed.compareAndSet(false, true)) return
         withContext(pjDispatcher) {
             pollJob?.cancel()
             pollJob?.join() // wait for poll loop to fully exit
@@ -196,6 +197,9 @@ class PjsipBridge : SipEngine {
             } catch (e: Exception) {
                 logger.error(e) { "Error during pjsip destroy" }
             }
+
+            logWriter?.delete()
+            logWriter = null
 
             _registrationState.value = RegistrationState.Idle
         }
