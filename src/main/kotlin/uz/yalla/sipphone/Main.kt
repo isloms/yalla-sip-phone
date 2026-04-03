@@ -14,6 +14,7 @@ import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import javax.swing.SwingUtilities
 import org.koin.core.context.startKoin
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.di.appModule
@@ -54,18 +55,20 @@ fun main() {
         }
     })
 
-    // 4. Create Decompose lifecycle + root component
+    // 4. Create Decompose lifecycle + root component (MUST be on EDT for Decompose)
     val lifecycle = LifecycleRegistry()
     val appSettings: AppSettings = koin.get()
-    val rootComponent = RootComponent(
-        componentContext = DefaultComponentContext(lifecycle = lifecycle),
-        registrationFactory = { ctx, onRegistered ->
-            RegistrationComponent(ctx, sipEngine, appSettings, onRegistered)
-        },
-        dialerFactory = { ctx, onDisconnected ->
-            DialerComponent(ctx, sipEngine, onDisconnected)
-        },
-    )
+    val rootComponent = runOnUiThread {
+        RootComponent(
+            componentContext = DefaultComponentContext(lifecycle = lifecycle),
+            registrationFactory = { ctx, onRegistered ->
+                RegistrationComponent(ctx, sipEngine, appSettings, onRegistered)
+            },
+            dialerFactory = { ctx, onDisconnected ->
+                DialerComponent(ctx, sipEngine, onDisconnected)
+            },
+        )
+    }
 
     // 5. Launch Compose window
     application {
@@ -96,4 +99,26 @@ fun main() {
             }
         }
     }
+}
+
+private fun <T> runOnUiThread(block: () -> T): T {
+    if (SwingUtilities.isEventDispatchThread()) {
+        return block()
+    }
+
+    var error: Throwable? = null
+    var result: T? = null
+
+    SwingUtilities.invokeAndWait {
+        try {
+            result = block()
+        } catch (e: Throwable) {
+            error = e
+        }
+    }
+
+    error?.let { throw it }
+
+    @Suppress("UNCHECKED_CAST")
+    return result as T
 }
