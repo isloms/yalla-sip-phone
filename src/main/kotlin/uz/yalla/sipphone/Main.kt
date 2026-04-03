@@ -48,16 +48,8 @@ fun main() {
         return
     }
 
-    // 3. Add shutdown hook (defense against force-kill)
-    Runtime.getRuntime().addShutdownHook(Thread {
-        try {
-            runBlocking {
-                withTimeoutOrNull(2000) { sipEngine.destroy() }
-            }
-        } catch (_: Exception) {
-            // JVM shutting down, best-effort
-        }
-    })
+    // No shutdown hook — destroy() called explicitly in onCloseRequest before exitApplication().
+    // Shutdown hooks run during JVM teardown when native memory may already be corrupted.
 
     // 4. Create Decompose lifecycle + root component (MUST be on EDT for Decompose)
     val lifecycle = LifecycleRegistry()
@@ -83,7 +75,10 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                // Don't block EDT — shutdown hook handles cleanup
+                // Destroy pjsip before exit — must complete before JVM teardown
+                runBlocking {
+                    withTimeoutOrNull(3000) { sipEngine.destroy() }
+                }
                 exitApplication()
             },
             title = "Yalla SIP Phone",
