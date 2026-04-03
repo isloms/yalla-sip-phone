@@ -2,22 +2,13 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     kotlin("jvm") version "2.1.20"
-    id("org.jetbrains.compose") version "1.7.3"
+    id("org.jetbrains.compose") version "1.8.2"
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
     kotlin("plugin.serialization") version "2.1.20"
 }
 
 group = "uz.yalla.sipphone"
 version = "1.0.0"
-
-// Fix Skiko version conflict: Compose 1.7.3 ships native binary 0.8.18
-// but Decompose/MaterialKolor pull in API 0.9.4.2 which has missing native methods
-configurations.all {
-    resolutionStrategy {
-        force("org.jetbrains.skiko:skiko:0.8.18")
-        force("org.jetbrains.skiko:skiko-awt:0.8.18")
-    }
-}
 
 dependencies {
     implementation(compose.desktop.currentOs)
