@@ -65,9 +65,14 @@ class PjsipBridge : SipEngine {
 
     override suspend fun init(): Result<Unit> = withContext(pjDispatcher) {
         try {
-            // 1. Load native library
+            // 1. Load native library via absolute path (don't override java.library.path)
             try {
-                System.loadLibrary("pjsua2")
+                val libDir = System.getProperty("pjsip.library.path")
+                if (libDir != null) {
+                    System.load("$libDir/libpjsua2.jnilib")
+                } else {
+                    System.loadLibrary("pjsua2")
+                }
             } catch (e: UnsatisfiedLinkError) {
                 logger.error(e) { "Failed to load pjsua2 native library" }
                 return@withContext Result.failure(e)

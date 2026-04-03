@@ -52,7 +52,7 @@ compose.desktop {
     application {
         mainClass = "uz.yalla.sipphone.MainKt"
 
-        jvmArgs += "-Djava.library.path=${projectDir}/libs"
+        jvmArgs += "-Dpjsip.library.path=${projectDir}/libs"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
