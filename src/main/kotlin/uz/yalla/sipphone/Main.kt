@@ -83,9 +83,7 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                runBlocking {
-                    withTimeoutOrNull(3000) { sipEngine.destroy() }
-                }
+                // Don't block EDT — shutdown hook handles cleanup
                 exitApplication()
             },
             title = "Yalla SIP Phone",
