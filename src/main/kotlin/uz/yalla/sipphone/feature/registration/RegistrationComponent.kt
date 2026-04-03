@@ -14,7 +14,10 @@ import kotlinx.coroutines.withContext
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
+import io.github.oshai.kotlinlogging.KotlinLogging
 import uz.yalla.sipphone.domain.SipEngine
+
+private val logger = KotlinLogging.logger {}
 
 class RegistrationComponent(
     componentContext: ComponentContext,
@@ -53,9 +56,11 @@ class RegistrationComponent(
     }
 
     fun connect(credentials: SipCredentials) {
+        logger.info { "Connecting to ${credentials.server}:${credentials.port} as ${credentials.username}" }
         scope.launch {
             withContext(ioDispatcher) { appSettings.saveCredentials(credentials) }
-            sipEngine.register(credentials)
+            val result = sipEngine.register(credentials)
+            logger.info { "Register result: $result" }
         }
     }
 

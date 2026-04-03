@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.pjsip.pjsua2.AccountConfig
 import org.pjsip.pjsua2.AuthCredInfo
 import org.pjsip.pjsua2.Endpoint
@@ -127,6 +128,7 @@ class PjsipBridge : SipEngine {
             }
             while (isActive) {
                 endpoint.libHandleEvents(50) // 50ms timeout = ~20 polls/sec
+                yield() // allow register/unregister/destroy to dispatch on this thread
             }
         }
     }
