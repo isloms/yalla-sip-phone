@@ -72,19 +72,7 @@ fun main() {
     }
 
     application {
-        val systemIsDark = remember {
-            try {
-                // macOS: defaults read -g AppleInterfaceStyle returns "Dark" in dark mode
-                val process = ProcessBuilder("defaults", "read", "-g", "AppleInterfaceStyle")
-                    .redirectErrorStream(true).start()
-                val output = process.inputStream.bufferedReader().readText().trim()
-                process.waitFor()
-                output.equals("Dark", ignoreCase = true)
-            } catch (_: Exception) {
-                false
-            }
-        }
-        var isDarkTheme by remember { mutableStateOf(systemIsDark) }
+        var isDarkTheme by remember { mutableStateOf(false) }
 
         val childStack by rootComponent.childStack.subscribeAsState()
         val isMainScreen = childStack.active.instance is RootComponent.Child.Main
