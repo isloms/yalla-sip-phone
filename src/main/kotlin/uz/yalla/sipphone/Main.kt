@@ -1,27 +1,37 @@
 package uz.yalla.sipphone
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.decompose.extensions.compose.lifecycle.LifecycleController
+import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.awt.AWTEvent
+import java.awt.event.KeyEvent
 import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
 import uz.yalla.sipphone.di.appModules
+import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipStackLifecycle
 import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.RootComponent
 import uz.yalla.sipphone.navigation.RootContent
+import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 
 private val logger = KotlinLogging.logger {}
@@ -39,8 +49,8 @@ fun main() {
     if (initResult.isFailure) {
         javax.swing.JOptionPane.showMessageDialog(
             null,
-            "Failed to initialize SIP engine:\n${initResult.exceptionOrNull()?.message}",
-            "Yalla SIP Phone - Error",
+            Strings.errorInitMessage(initResult.exceptionOrNull()?.message),
+            Strings.ERROR_INIT_TITLE,
             javax.swing.JOptionPane.ERROR_MESSAGE,
         )
         return
@@ -62,29 +72,132 @@ fun main() {
     }
 
     application {
+        var isDarkTheme by remember { mutableStateOf(false) }
+
+        val childStack by rootComponent.childStack.subscribeAsState()
+        val isMainScreen = childStack.active.instance is RootComponent.Child.Main
+        val mainComponent = (childStack.active.instance as? RootComponent.Child.Main)?.component
+
         val windowState = rememberWindowState(
             size = DpSize(420.dp, 520.dp),
             position = WindowPosition(Alignment.Center),
         )
 
+        // Switch window properties based on active screen
+        LaunchedEffect(isMainScreen) {
+            if (isMainScreen) {
+                windowState.placement = WindowPlacement.Maximized
+            } else {
+                windowState.placement = WindowPlacement.Floating
+                windowState.size = DpSize(420.dp, 520.dp)
+                windowState.position = WindowPosition(Alignment.Center)
+            }
+        }
+
+        // Prevent minimize on main screen
+        LaunchedEffect(isMainScreen, windowState.isMinimized) {
+            if (isMainScreen && windowState.isMinimized) {
+                windowState.isMinimized = false
+            }
+        }
+
+        val windowTitle = if (isMainScreen) {
+            "${Strings.APP_TITLE} \u2014 ${mainComponent?.agentInfo?.name.orEmpty()}"
+        } else {
+            Strings.APP_TITLE
+        }
+
         Window(
             onCloseRequest = {
-                runBlocking {
-                    withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
+                if (isMainScreen) {
+                    val confirm = javax.swing.JOptionPane.showConfirmDialog(
+                        null,
+                        Strings.SETTINGS_LOGOUT_CONFIRM,
+                        Strings.SETTINGS_LOGOUT_CONFIRM_TITLE,
+                        javax.swing.JOptionPane.YES_NO_OPTION,
+                    )
+                    if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                        runBlocking {
+                            withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
+                        }
+                        exitApplication()
+                    }
+                } else {
+                    exitApplication()
                 }
-                exitApplication()
             },
-            title = "Yalla SIP Phone",
+            title = windowTitle,
             state = windowState,
+            alwaysOnTop = isMainScreen,
+            resizable = isMainScreen,
         ) {
+            LaunchedEffect(isMainScreen) {
+                if (isMainScreen) {
+                    window.minimumSize = java.awt.Dimension(1280, 720)
+                } else {
+                    window.minimumSize = java.awt.Dimension(420, 520)
+                }
+            }
+
+            // AWT-level keyboard shortcuts — work regardless of Compose/JCEF focus
             LaunchedEffect(Unit) {
-                window.minimumSize = java.awt.Dimension(380, 180)
+                java.awt.Toolkit.getDefaultToolkit().addAWTEventListener({ event ->
+                    if (event is KeyEvent && event.id == KeyEvent.KEY_PRESSED) {
+                        val ctrl = event.isControlDown || event.isMetaDown
+                        val shift = event.isShiftDown
+
+                        val currentChild = rootComponent.childStack.value.active.instance
+                        if (currentChild !is RootComponent.Child.Main) return@addAWTEventListener
+                        val toolbar = (currentChild as RootComponent.Child.Main).component.toolbar
+                        val callState = toolbar.callState.value
+
+                        when {
+                            // Ctrl+Enter = Answer incoming call
+                            ctrl && event.keyCode == KeyEvent.VK_ENTER
+                                && callState is CallState.Ringing && !callState.isOutbound -> {
+                                toolbar.answerCall()
+                                event.consume()
+                            }
+                            // Ctrl+Shift+E = Reject incoming or End active call
+                            ctrl && shift && event.keyCode == KeyEvent.VK_E -> {
+                                when (callState) {
+                                    is CallState.Ringing -> toolbar.rejectCall()
+                                    is CallState.Active -> toolbar.hangupCall()
+                                    else -> {}
+                                }
+                                event.consume()
+                            }
+                            // Ctrl+M = Toggle mute (only during active call)
+                            ctrl && !shift && event.keyCode == KeyEvent.VK_M
+                                && callState is CallState.Active -> {
+                                toolbar.toggleMute()
+                                event.consume()
+                            }
+                            // Ctrl+H = Toggle hold (only during active call)
+                            ctrl && !shift && event.keyCode == KeyEvent.VK_H
+                                && callState is CallState.Active -> {
+                                toolbar.toggleHold()
+                                event.consume()
+                            }
+                            // Ctrl+L = Focus phone input (idle state only)
+                            ctrl && !shift && event.keyCode == KeyEvent.VK_L
+                                && callState is CallState.Idle -> {
+                                // Focus on phone input — full focus management comes with JCEF
+                                event.consume()
+                            }
+                        }
+                    }
+                }, AWTEvent.KEY_EVENT_MASK)
             }
 
             LifecycleController(decomposeLifecycle, windowState)
 
-            YallaSipPhoneTheme {
-                RootContent(rootComponent, windowState)
+            YallaSipPhoneTheme(isDark = isDarkTheme) {
+                RootContent(
+                    root = rootComponent,
+                    isDarkTheme = isDarkTheme,
+                    onThemeToggle = { isDarkTheme = !isDarkTheme },
+                )
             }
         }
     }
