@@ -4,9 +4,9 @@ import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.childStack
+import com.arkivanov.decompose.router.stack.navigate
 import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.pushNew
-import com.arkivanov.decompose.router.stack.replaceAll
 import com.arkivanov.decompose.value.Value
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.feature.dialer.DialerComponent
@@ -41,7 +41,7 @@ class RootComponent(
             is Screen.Main -> Child.Main(
                 factory.createMain(context, currentAuthResult!!) {
                     currentAuthResult = null
-                    navigation.replaceAll(Screen.Login) // fresh Login, not cached
+                    navigation.navigate { listOf(Screen.Login) }
                 },
             )
             // Keep old screens working for back-compat
