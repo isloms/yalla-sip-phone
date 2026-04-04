@@ -2,6 +2,7 @@ package uz.yalla.sipphone.feature.login
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,6 +52,8 @@ fun LoginScreen(component: LoginComponent) {
 
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showManualDialog by remember { mutableStateOf(false) }
+
     val isLoading = loginState is LoginState.Loading || loginState is LoginState.Authenticated
     val errorMessage = (loginState as? LoginState.Error)?.message
 
@@ -64,6 +68,8 @@ fun LoginScreen(component: LoginComponent) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            Spacer(modifier = Modifier.weight(1f))
+
             // Title
             Text(
                 text = Strings.LOGIN_TITLE,
@@ -147,6 +153,28 @@ fun LoginScreen(component: LoginComponent) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(tokens.spacingMd))
+
+            // Manual connection link
+            TextButton(onClick = { showManualDialog = true }) {
+                Text(
+                    text = Strings.LOGIN_MANUAL_CONNECTION,
+                    color = colors.textSubtle,
+                )
+            }
+
+            // Manual connection dialog
+            if (showManualDialog) {
+                ManualConnectionDialog(
+                    isLoading = isLoading,
+                    onConnect = { server, port, username, pwd ->
+                        showManualDialog = false
+                        component.manualConnect(server, port, username, pwd)
+                    },
+                    onDismiss = { showManualDialog = false },
+                )
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
             // Version
@@ -157,4 +185,79 @@ fun LoginScreen(component: LoginComponent) {
             )
         }
     }
+}
+
+@Composable
+private fun ManualConnectionDialog(
+    isLoading: Boolean,
+    onConnect: (server: String, port: Int, username: String, password: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val tokens = LocalAppTokens.current
+
+    var server by remember { mutableStateOf("") }
+    var port by remember { mutableStateOf("5060") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Strings.LOGIN_MANUAL_CONNECTION) },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(tokens.spacingSm),
+            ) {
+                OutlinedTextField(
+                    value = server,
+                    onValueChange = { server = it },
+                    label = { Text(Strings.LABEL_SERVER) },
+                    placeholder = { Text(Strings.PLACEHOLDER_SERVER) },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
+                    OutlinedTextField(
+                        value = port,
+                        onValueChange = { port = it.filter { c -> c.isDigit() }.take(5) },
+                        label = { Text(Strings.LABEL_PORT) },
+                        singleLine = true,
+                        enabled = !isLoading,
+                        modifier = Modifier.width(100.dp),
+                    )
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text(Strings.LABEL_USERNAME) },
+                        placeholder = { Text(Strings.PLACEHOLDER_USERNAME) },
+                        singleLine = true,
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(Strings.LABEL_PASSWORD) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConnect(server, port.toIntOrNull() ?: 5060, username, password) },
+                enabled = !isLoading && server.isNotEmpty() && username.isNotEmpty(),
+            ) {
+                Text(Strings.BUTTON_CONNECT)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(Strings.BUTTON_CANCEL)
+            }
+        },
+    )
 }
