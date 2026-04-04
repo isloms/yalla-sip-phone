@@ -14,6 +14,8 @@ import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.PhoneNumberValidator
 import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.domain.RegistrationState
+import javax.sound.sampled.AudioSystem
+import javax.sound.sampled.Clip
 
 private val logger = KotlinLogging.logger {}
 
@@ -31,6 +33,22 @@ class ToolbarComponent(
     val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private var ringtoneClip: Clip? = null
+
+    init {
+        scope.launch {
+            callEngine.callState.collect { state ->
+                when {
+                    state is CallState.Ringing && !state.isOutbound -> {
+                        playRingtone()
+                        showIncomingNotification()
+                    }
+                    else -> stopRingtone()
+                }
+            }
+        }
+    }
 
     fun setAgentStatus(status: AgentStatus) {
         _agentStatus.value = status
@@ -51,10 +69,12 @@ class ToolbarComponent(
     }
 
     fun answerCall() {
+        stopRingtone()
         scope.launch { callEngine.answerCall() }
     }
 
     fun rejectCall() {
+        stopRingtone()
         scope.launch { callEngine.hangupCall() }
     }
 
@@ -72,5 +92,40 @@ class ToolbarComponent(
 
     fun disconnect() {
         scope.launch { registrationEngine.unregister() }
+    }
+
+    private fun playRingtone() {
+        try {
+            stopRingtone()
+            val resourceStream = javaClass.getResourceAsStream("/ringtone.wav") ?: return
+            val audioStream = AudioSystem.getAudioInputStream(resourceStream)
+            ringtoneClip = AudioSystem.getClip().apply {
+                open(audioStream)
+                loop(Clip.LOOP_CONTINUOUSLY)
+            }
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to play ringtone" }
+        }
+    }
+
+    private fun stopRingtone() {
+        ringtoneClip?.let { clip ->
+            if (clip.isRunning) clip.stop()
+            clip.close()
+        }
+        ringtoneClip = null
+    }
+
+    private fun showIncomingNotification() {
+        try {
+            if (System.getProperty("os.name").lowercase().contains("mac")) {
+                ProcessBuilder(
+                    "osascript", "-e",
+                    "display notification \"Incoming Call\" with title \"Yalla SIP Phone\" sound name \"default\""
+                ).start()
+            }
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to show notification" }
+        }
     }
 }

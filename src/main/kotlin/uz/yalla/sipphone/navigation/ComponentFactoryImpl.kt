@@ -3,9 +3,13 @@ package uz.yalla.sipphone.navigation
 import com.arkivanov.decompose.ComponentContext
 import org.koin.core.Koin
 import uz.yalla.sipphone.data.settings.AppSettings
+import uz.yalla.sipphone.domain.AuthRepository
+import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.feature.dialer.DialerComponent
+import uz.yalla.sipphone.feature.login.LoginComponent
+import uz.yalla.sipphone.feature.main.MainComponent
 import uz.yalla.sipphone.feature.registration.RegistrationComponent
 
 class ComponentFactoryImpl(private val koin: Koin) : ComponentFactory {
@@ -28,5 +32,27 @@ class ComponentFactoryImpl(private val koin: Koin) : ComponentFactory {
         registrationEngine = koin.get<RegistrationEngine>(),
         callEngine = koin.get<CallEngine>(),
         onDisconnected = onDisconnected,
+    )
+
+    override fun createLogin(
+        context: ComponentContext,
+        onLoginSuccess: (AuthResult) -> Unit,
+    ): LoginComponent = LoginComponent(
+        componentContext = context,
+        authRepository = koin.get<AuthRepository>(),
+        registrationEngine = koin.get<RegistrationEngine>(),
+        onLoginSuccess = onLoginSuccess,
+    )
+
+    override fun createMain(
+        context: ComponentContext,
+        authResult: AuthResult,
+        onLogout: () -> Unit,
+    ): MainComponent = MainComponent(
+        componentContext = context,
+        authResult = authResult,
+        callEngine = koin.get<CallEngine>(),
+        registrationEngine = koin.get<RegistrationEngine>(),
+        onLogout = onLogout,
     )
 }
