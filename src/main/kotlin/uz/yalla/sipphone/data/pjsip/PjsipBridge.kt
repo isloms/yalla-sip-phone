@@ -32,6 +32,7 @@ import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.domain.RegistrationEngine
+import uz.yalla.sipphone.domain.SipError
 import uz.yalla.sipphone.domain.parseRemoteUri
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -216,7 +217,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
             Result.success(Unit)
         } catch (e: Exception) {
             logger.error(e) { "Registration failed" }
-            _registrationState.value = RegistrationState.Failed("Registration error: ${e.message}")
+            _registrationState.value = RegistrationState.Failed(SipError.fromException(e))
             Result.failure(e)
         } finally {
             accountConfig.delete()

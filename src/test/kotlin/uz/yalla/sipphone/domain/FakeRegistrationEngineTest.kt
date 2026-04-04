@@ -43,7 +43,7 @@ class FakeRegistrationEngineTest {
 
         val state = engine.registrationState.value
         assertIs<RegistrationState.Failed>(state)
-        assertEquals("403 Forbidden", state.message)
+        assertIs<SipError.AuthFailed>(state.error)
     }
 
     @Test

@@ -5,6 +5,7 @@ import org.pjsip.pjsua2.Account
 import org.pjsip.pjsua2.OnIncomingCallParam
 import org.pjsip.pjsua2.OnRegStateParam
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipError
 
 private val logger = KotlinLogging.logger {}
 
@@ -27,14 +28,14 @@ class PjsipAccount(private val bridge: PjsipBridge) : Account() {
                     logger.info { "Unregistered" }
                 }
                 else -> {
-                    val reason = "${prm.code} ${prm.reason}"
-                    bridge.updateRegistrationState(RegistrationState.Failed(message = reason))
-                    logger.warn { "Registration failed: $reason (lastErr=${info.regLastErr})" }
+                    val reason = prm.reason
+                    bridge.updateRegistrationState(RegistrationState.Failed(SipError.fromSipStatus(prm.code, reason)))
+                    logger.warn { "Registration failed: ${prm.code} $reason (lastErr=${info.regLastErr})" }
                 }
             }
         } catch (e: Exception) {
             logger.error(e) { "Error in onRegState callback" }
-            bridge.updateRegistrationState(RegistrationState.Failed(message = "Internal error: ${e.message}"))
+            bridge.updateRegistrationState(RegistrationState.Failed(SipError.fromException(e)))
         } finally {
             info?.delete()
         }

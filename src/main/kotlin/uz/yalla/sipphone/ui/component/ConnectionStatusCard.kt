@@ -99,7 +99,7 @@ fun ConnectionStatusCard(state: RegistrationState, modifier: Modifier = Modifier
                         text = when (state) {
                             is RegistrationState.Registering -> "Connecting to server..."
                             is RegistrationState.Registered -> state.server
-                            is RegistrationState.Failed -> state.message
+                            is RegistrationState.Failed -> state.error.displayMessage
                             is RegistrationState.Idle -> ""
                         },
                         style = MaterialTheme.typography.bodySmall,

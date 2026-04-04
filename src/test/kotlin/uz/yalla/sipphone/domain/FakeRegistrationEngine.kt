@@ -32,6 +32,8 @@ class FakeRegistrationEngine : RegistrationEngine {
     }
 
     fun simulateFailed(message: String = "403 Forbidden") {
-        _registrationState.value = RegistrationState.Failed(message)
+        _registrationState.value = RegistrationState.Failed(
+            SipError.fromSipStatus(403, message)
+        )
     }
 }
