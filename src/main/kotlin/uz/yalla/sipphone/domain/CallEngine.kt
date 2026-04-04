@@ -9,4 +9,6 @@ interface CallEngine {
     suspend fun hangupCall()
     suspend fun toggleMute()
     suspend fun toggleHold()
+    suspend fun setMute(callId: String, muted: Boolean)
+    suspend fun setHold(callId: String, onHold: Boolean)
 }

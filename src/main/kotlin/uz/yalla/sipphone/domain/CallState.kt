@@ -3,11 +3,13 @@ package uz.yalla.sipphone.domain
 sealed interface CallState {
     data object Idle : CallState
     data class Ringing(
+        val callId: String,
         val callerNumber: String,
         val callerName: String?,
         val isOutbound: Boolean,
     ) : CallState
     data class Active(
+        val callId: String,
         val remoteNumber: String,
         val remoteName: String?,
         val isOutbound: Boolean,

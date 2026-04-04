@@ -15,6 +15,8 @@ class FakeCallEngine(
     var hangupCallCount = 0
     var toggleMuteCount = 0
     var toggleHoldCount = 0
+    var setMuteCount = 0
+    var setHoldCount = 0
 
     override suspend fun makeCall(number: String): Result<Unit> {
         lastCallNumber = number
@@ -37,8 +39,29 @@ class FakeCallEngine(
         toggleHoldCount++
     }
 
-    fun simulateRinging(callerNumber: String = "102", callerName: String? = null, isOutbound: Boolean = false) {
-        _callState.value = CallState.Ringing(callerNumber, callerName, isOutbound)
+    override suspend fun setMute(callId: String, muted: Boolean) {
+        setMuteCount++
+        val state = _callState.value
+        if (state is CallState.Active && state.callId == callId) {
+            _callState.value = state.copy(isMuted = muted)
+        }
+    }
+
+    override suspend fun setHold(callId: String, onHold: Boolean) {
+        setHoldCount++
+        val state = _callState.value
+        if (state is CallState.Active && state.callId == callId) {
+            _callState.value = state.copy(isOnHold = onHold)
+        }
+    }
+
+    fun simulateRinging(
+        callerNumber: String = "102",
+        callerName: String? = null,
+        isOutbound: Boolean = false,
+        callId: String = "test-call-id",
+    ) {
+        _callState.value = CallState.Ringing(callId, callerNumber, callerName, isOutbound)
     }
 
     fun simulateActive(
@@ -47,8 +70,9 @@ class FakeCallEngine(
         isOutbound: Boolean = false,
         isMuted: Boolean = false,
         isOnHold: Boolean = false,
+        callId: String = "test-call-id",
     ) {
-        _callState.value = CallState.Active(remoteNumber, remoteName, isOutbound, isMuted, isOnHold)
+        _callState.value = CallState.Active(callId, remoteNumber, remoteName, isOutbound, isMuted, isOnHold)
     }
 
     fun simulateIdle() {

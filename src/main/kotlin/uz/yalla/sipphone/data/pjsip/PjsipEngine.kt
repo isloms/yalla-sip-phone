@@ -96,4 +96,10 @@ class PjsipEngine : SipStackLifecycle, RegistrationEngine, CallEngine {
 
     override suspend fun toggleHold(): Unit =
         withContext(pjDispatcher) { callManager.toggleHold() }
+
+    override suspend fun setMute(callId: String, muted: Boolean): Unit =
+        withContext(pjDispatcher) { callManager.setMute(callId, muted) }
+
+    override suspend fun setHold(callId: String, onHold: Boolean): Unit =
+        withContext(pjDispatcher) { callManager.setHold(callId, onHold) }
 }

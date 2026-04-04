@@ -8,6 +8,7 @@ import org.pjsip.pjsua2.CallOpParam
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.parseRemoteUri
+import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,6 +27,7 @@ class PjsipCallManager(
     val callState: StateFlow<CallState> = _callState.asStateFlow()
 
     private var currentCall: PjsipCall? = null
+    private var currentCallId: String? = null
     private var holdInProgress = false
 
     fun isCallManagerDestroyed(): Boolean = isDestroyed()
@@ -46,7 +48,9 @@ class PjsipCallManager(
                 prm.delete()
             }
             currentCall = call
+            currentCallId = UUID.randomUUID().toString()
             _callState.value = CallState.Ringing(
+                callId = currentCallId!!,
                 callerNumber = number,
                 callerName = null,
                 isOutbound = true,
@@ -163,10 +167,82 @@ class PjsipCallManager(
         }
     }
 
+    suspend fun setMute(callId: String, muted: Boolean) {
+        val state = _callState.value
+        if (state !is CallState.Active) return
+        if (state.callId != callId) {
+            logger.warn { "setMute: callId mismatch (expected=${state.callId}, got=$callId)" }
+            return
+        }
+        if (state.isMuted == muted) return
+        val call = currentCall ?: return
+        try {
+            val callInfo = call.getInfo()
+            val mediaCount = callInfo.media.size
+            try {
+                for (i in 0 until mediaCount) {
+                    val mediaInfo = callInfo.media[i]
+                    if (mediaInfo.type == org.pjsip.pjsua2.pjmedia_type.PJMEDIA_TYPE_AUDIO &&
+                        mediaInfo.status == org.pjsip.pjsua2.pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
+                    ) {
+                        val audioMedia = call.getAudioMedia(i)
+                        val captureMedia = audioMediaProvider.getCaptureDevMedia()
+                        if (muted) {
+                            captureMedia.stopTransmit(audioMedia)
+                        } else {
+                            captureMedia.startTransmit(audioMedia)
+                        }
+                        break
+                    }
+                }
+            } finally {
+                callInfo.delete()
+            }
+            _callState.value = state.copy(isMuted = muted)
+        } catch (e: Exception) {
+            logger.error(e) { "setMute failed" }
+        }
+    }
+
+    suspend fun setHold(callId: String, onHold: Boolean) {
+        val state = _callState.value
+        if (state !is CallState.Active) return
+        if (state.callId != callId) {
+            logger.warn { "setHold: callId mismatch (expected=${state.callId}, got=$callId)" }
+            return
+        }
+        if (state.isOnHold == onHold) return
+        if (holdInProgress) {
+            logger.warn { "Hold/resume operation already in progress, ignoring" }
+            return
+        }
+        val call = currentCall ?: return
+        holdInProgress = true
+        try {
+            val prm = CallOpParam()
+            try {
+                if (onHold) {
+                    call.setHold(prm)
+                } else {
+                    prm.opt.flag = 0
+                    call.reinvite(prm)
+                }
+            } finally {
+                prm.delete()
+            }
+            _callState.value = state.copy(isOnHold = onHold)
+        } catch (e: Exception) {
+            logger.error(e) { "setHold failed" }
+        } finally {
+            holdInProgress = false
+        }
+    }
+
     fun onCallConfirmed(call: PjsipCall) {
         val state = _callState.value
         if (state is CallState.Ringing) {
             _callState.value = CallState.Active(
+                callId = state.callId,
                 remoteNumber = state.callerNumber,
                 remoteName = state.callerName,
                 isOutbound = state.isOutbound,
@@ -207,10 +283,12 @@ class PjsipCallManager(
         try {
             val call = PjsipCall(this, acc, callId)
             currentCall = call
+            currentCallId = UUID.randomUUID().toString()
             val info = call.getInfo()
             try {
                 val callerInfo = parseRemoteUri(info.remoteUri)
                 _callState.value = CallState.Ringing(
+                    callId = currentCallId!!,
                     callerNumber = callerInfo.number,
                     callerName = callerInfo.displayName,
                     isOutbound = false,
@@ -239,8 +317,11 @@ class PjsipCallManager(
                     val playbackMedia = audioMediaProvider.getPlaybackDevMedia()
                     val captureMedia = audioMediaProvider.getCaptureDevMedia()
                     audioMedia.startTransmit(playbackMedia)
-                    captureMedia.startTransmit(audioMedia)
-                    logger.info { "Audio media connected for media index $i" }
+                    val isMuted = (_callState.value as? CallState.Active)?.isMuted == true
+                    if (!isMuted) {
+                        captureMedia.startTransmit(audioMedia)
+                    }
+                    logger.info { "Audio media connected for media index $i (muted=$isMuted)" }
 
                     try {
                         val si = call.getStreamInfo(i.toLong())
@@ -275,11 +356,13 @@ class PjsipCallManager(
             try { call.delete() } catch (_: Exception) {}
         }
         currentCall = null
+        currentCallId = null
         _callState.value = CallState.Idle
     }
 
     private fun resetCallState() {
         currentCall = null
+        currentCallId = null
         _callState.value = CallState.Idle
     }
 }
