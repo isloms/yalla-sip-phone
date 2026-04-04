@@ -4,3 +4,9 @@ build/
 *.iml
 local.properties
 .DS_Store
+.kotlin/
+hs_err_pid*.log
+META-INF/
+commonMain/
+jvmMain/
+nonWebMain/
