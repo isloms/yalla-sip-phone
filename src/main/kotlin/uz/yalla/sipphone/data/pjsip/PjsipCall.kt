@@ -58,13 +58,20 @@ class PjsipCall : Call {
                 ) {
                     val audioMedia = getAudioMedia(i)
                     val playbackMedia = bridge.getPlaybackDevMedia()
-                    audioMedia.startTransmit(playbackMedia)
-                    playbackMedia.delete()
                     val captureMedia = bridge.getCaptureDevMedia()
+                    audioMedia.startTransmit(playbackMedia)
                     captureMedia.startTransmit(audioMedia)
-                    captureMedia.delete()
-                    audioMedia.delete()
                     logger.info { "Audio media connected for media index $i" }
+
+                    // RTP stream diagnostics
+                    try {
+                        val si = getStreamInfo(i.toLong())
+                        logger.info { "Stream: codec=${si.codecName}/${si.codecClockRate}Hz, " +
+                            "dir=${si.dir}, remote=${si.remoteRtpAddress}" }
+                        si.delete()
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Could not get stream info" }
+                    }
                     break
                 }
             }

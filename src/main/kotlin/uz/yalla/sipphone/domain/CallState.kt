@@ -5,6 +5,7 @@ sealed interface CallState {
     data class Ringing(
         val callerNumber: String,
         val callerName: String?,
+        val isOutbound: Boolean,
     ) : CallState
     data class Active(
         val remoteNumber: String,

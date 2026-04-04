@@ -35,8 +35,8 @@ class FakeCallEngine : CallEngine {
         toggleHoldCount++
     }
 
-    fun simulateRinging(callerNumber: String = "102", callerName: String? = null) {
-        _callState.value = CallState.Ringing(callerNumber, callerName)
+    fun simulateRinging(callerNumber: String = "102", callerName: String? = null, isOutbound: Boolean = false) {
+        _callState.value = CallState.Ringing(callerNumber, callerName, isOutbound)
     }
 
     fun simulateActive(

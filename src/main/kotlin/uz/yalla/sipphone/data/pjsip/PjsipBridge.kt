@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import org.pjsip.pjsua2.AccountConfig
 import org.pjsip.pjsua2.AudioMedia
@@ -57,6 +58,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     private var account: PjsipAccount? = null
     private var pollJob: Job? = null
     private var logWriter: PjsipLogWriter? = null
+    private var lastRegisterAttemptMs = 0L
 
     internal fun isDestroyed(): Boolean = destroyed.get()
 
@@ -78,6 +80,15 @@ class PjsipBridge : RegistrationEngine, CallEngine {
             val version = endpoint.libVersion()
             logger.info { "pjsip initialized, version: ${version.full}" }
             version.delete()
+
+            // Audio device diagnostics
+            val adm = endpoint.audDevManager()
+            logger.info { "Audio capture device: ${adm.captureDev}, playback device: ${adm.playbackDev}" }
+            val devCount = adm.enumDev2().size
+            for (j in 0 until devCount) {
+                val dev = adm.enumDev2()[j]
+                logger.info { "Audio device[$j]: '${dev.name}' in=${dev.inputCount} out=${dev.outputCount}" }
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -129,7 +140,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
 
         logWriter = PjsipLogWriter()
         epConfig.logConfig.writer = logWriter
-        epConfig.logConfig.level = 4
+        epConfig.logConfig.level = 5
         epConfig.logConfig.consoleLevel = 0
 
         endpoint.libInit(epConfig)
@@ -140,6 +151,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
         val transportConfig = TransportConfig()
         transportConfig.port = 0
         endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_UDP, transportConfig)
+        endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_TCP, transportConfig)
         transportConfig.delete()
     }
 
@@ -156,12 +168,37 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     }
 
     override suspend fun register(credentials: SipCredentials): Result<Unit> = withContext(pjDispatcher) {
+        if (_registrationState.value is RegistrationState.Registering) {
+            return@withContext Result.failure(IllegalStateException("Registration already in progress"))
+        }
+
+        // Rate limit: minimum 1s between attempts to prevent server flood
+        val now = System.currentTimeMillis()
+        val elapsed = now - lastRegisterAttemptMs
+        if (elapsed < 1000) kotlinx.coroutines.delay(1000 - elapsed)
+        lastRegisterAttemptMs = System.currentTimeMillis()
+
+        val wasRegistered = _registrationState.value is RegistrationState.Registered
         _registrationState.value = RegistrationState.Registering
 
-        // Must delete() previous account to prevent GC finalizer crash
-        account?.shutdown()
-        account?.delete()
-        account = null
+        // Tear down previous account to prevent SIP transaction conflicts (403)
+        account?.let { prevAccount ->
+            // Always cancel in-flight registration (catches PJSIP_EBUSY if mid-transaction)
+            try { prevAccount.setRegistration(false) } catch (_: Exception) {}
+
+            // If previously registered, wait for server to acknowledge unregister
+            if (wasRegistered) {
+                try {
+                    withTimeoutOrNull(3000) {
+                        _registrationState.first { it is RegistrationState.Idle }
+                    }
+                } catch (_: Exception) {}
+            }
+            _registrationState.value = RegistrationState.Registering
+
+            try { prevAccount.delete() } catch (_: Exception) {}
+            account = null
+        }
 
         val accountConfig = AccountConfig()
         val authCred = AuthCredInfo("digest", "*", credentials.username, 0, credentials.password)
@@ -195,14 +232,11 @@ class PjsipBridge : RegistrationEngine, CallEngine {
                 _registrationState.first { it is RegistrationState.Idle }
             }
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-            logger.warn { "Unregistration timed out, forcing shutdown" }
-        } catch (_: kotlinx.coroutines.CancellationException) {
-            logger.debug { "Unregister cancelled (component destroyed)" }
+            logger.warn { "Unregistration timed out" }
         } catch (e: Exception) {
             logger.error(e) { "Unregister error" }
         } finally {
-            acc.shutdown()
-            acc.delete()
+            try { acc.delete() } catch (_: Exception) {}
             account = null
             _registrationState.value = RegistrationState.Idle
         }
@@ -224,6 +258,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
             _callState.value = CallState.Ringing(
                 callerNumber = number,
                 callerName = null,
+                isOutbound = true,
             )
             Result.success(Unit)
         } catch (e: Exception) {
@@ -235,7 +270,8 @@ class PjsipBridge : RegistrationEngine, CallEngine {
 
     override suspend fun answerCall() = withContext(pjDispatcher) {
         val call = currentCall ?: return@withContext
-        if (_callState.value !is CallState.Ringing) return@withContext
+        val ringing = _callState.value as? CallState.Ringing ?: return@withContext
+        if (ringing.isOutbound) return@withContext
         try {
             val prm = CallOpParam()
             prm.statusCode = 200
@@ -265,17 +301,20 @@ class PjsipBridge : RegistrationEngine, CallEngine {
         try {
             val captureMedia = endpoint.audDevManager().captureDevMedia
             if (state.isMuted) captureMedia.adjustRxLevel(1.0f) else captureMedia.adjustRxLevel(0.0f)
-            captureMedia.delete()
             _callState.value = state.copy(isMuted = !state.isMuted)
         } catch (e: Exception) {
             logger.error(e) { "toggleMute failed" }
         }
     }
 
+    private var holdInProgress = false
+
     override suspend fun toggleHold() = withContext(pjDispatcher) {
         val state = _callState.value
         if (state !is CallState.Active) return@withContext
+        if (holdInProgress) return@withContext
         val call = currentCall ?: return@withContext
+        holdInProgress = true
         try {
             val prm = CallOpParam()
             if (state.isOnHold) { prm.opt.flag = 0; call.reinvite(prm) } else call.setHold(prm)
@@ -283,6 +322,8 @@ class PjsipBridge : RegistrationEngine, CallEngine {
             _callState.value = state.copy(isOnHold = !state.isOnHold)
         } catch (e: Exception) {
             logger.error(e) { "toggleHold failed" }
+        } finally {
+            holdInProgress = false
         }
     }
 
@@ -333,6 +374,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
             _callState.value = CallState.Ringing(
                 callerNumber = callerInfo.number,
                 callerName = callerInfo.displayName,
+                isOutbound = false,
             )
             logger.info { "Incoming call from: ${callerInfo.displayName ?: callerInfo.number}" }
         } catch (e: Exception) {
@@ -359,6 +401,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     override suspend fun destroy() {
         if (!destroyed.compareAndSet(false, true)) return
         withContext(pjDispatcher) {
+            // 1. Hangup active call
             currentCall?.let { call ->
                 try {
                     val prm = CallOpParam()
@@ -368,11 +411,17 @@ class PjsipBridge : RegistrationEngine, CallEngine {
                 try { call.delete() } catch (_: Exception) {}
             }
             currentCall = null
-            isOutboundCall = false
             _callState.value = CallState.Idle
+
+            // 2. Unregister WHILE event loop is still running (so packet gets sent)
+            try { account?.setRegistration(false) } catch (_: Exception) {}
+            // Give the event loop time to send the unregister and process response
+            kotlinx.coroutines.delay(200)
+
+            // 3. Now stop event loop and clean up
             pollJob?.cancel()
             pollJob?.join()
-            try { account?.shutdown() } catch (_: Exception) {}
+            try { account?.delete() } catch (_: Exception) {}
             account = null
             logWriter = null
             _registrationState.value = RegistrationState.Idle

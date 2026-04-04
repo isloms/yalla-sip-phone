@@ -45,6 +45,11 @@ fun main() {
         return
     }
 
+    // Ensure cleanup on Ctrl+C / kill signal (prevents stale server registrations)
+    Runtime.getRuntime().addShutdownHook(Thread {
+        runBlocking { withTimeoutOrNull(3000) { registrationEngine.destroy() } }
+    })
+
     val lifecycle = LifecycleRegistry()
     val appSettings: AppSettings = koin.get()
     val rootComponent = runOnUiThread {

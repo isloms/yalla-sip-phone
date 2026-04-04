@@ -6,7 +6,7 @@
     </appender>
 
     <logger name="uz.yalla.sipphone" level="DEBUG"/>
-    <logger name="pjsip.native" level="INFO"/>
+    <logger name="pjsip.native" level="TRACE"/>
 
     <root level="WARN">
         <appender-ref ref="CONSOLE"/>

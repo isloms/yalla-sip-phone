@@ -92,6 +92,7 @@ fun DialerScreen(component: DialerComponent) {
                         if (event.type == KeyEventType.KeyDown &&
                             event.key == Key.Spacebar &&
                             callState is CallState.Ringing &&
+                            !(callState as CallState.Ringing).isOutbound &&
                             !isInputFocused
                         ) {
                             component.answerCall()
@@ -129,13 +130,21 @@ fun DialerScreen(component: DialerComponent) {
                         onFocusChanged = { isInputFocused = it },
                         tokens = tokens,
                     )
-                    is CallState.Ringing -> RingingRow(
-                        callerNumber = state.callerNumber,
-                        callerName = state.callerName,
-                        onAnswer = component::answerCall,
-                        onReject = component::hangupCall,
-                        tokens = tokens,
-                    )
+                    is CallState.Ringing -> if (state.isOutbound) {
+                        OutboundRingingRow(
+                            callerNumber = state.callerNumber,
+                            onCancel = component::hangupCall,
+                            tokens = tokens,
+                        )
+                    } else {
+                        RingingRow(
+                            callerNumber = state.callerNumber,
+                            callerName = state.callerName,
+                            onAnswer = component::answerCall,
+                            onReject = component::hangupCall,
+                            tokens = tokens,
+                        )
+                    }
                     is CallState.Active -> ActiveCallRow(
                         remoteNumber = state.remoteNumber,
                         remoteName = state.remoteName,
@@ -211,6 +220,44 @@ private fun IdleRow(
         // Disconnect
         TextButton(onClick = onDisconnect) {
             Text("Disconnect", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun OutboundRingingRow(
+    callerNumber: String,
+    onCancel: () -> Unit,
+    tokens: uz.yalla.sipphone.ui.theme.AppTokens,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "CALLING\u2026",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.tertiary,
+                letterSpacing = 1.5.sp,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                callerNumber,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        OutlinedButton(
+            onClick = onCancel,
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+            ),
+        ) {
+            Icon(Icons.Filled.CallEnd, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Cancel")
         }
     }
 }

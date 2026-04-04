@@ -57,6 +57,8 @@ class RegistrationComponent(
     }
 
     fun connect(credentials: SipCredentials) {
+        // Prevent rapid re-registration (403 flood prevention)
+        if (sipEngine.registrationState.value is RegistrationState.Registering) return
         logger.info { "Connecting to ${credentials.server}:${credentials.port} as ${credentials.username}" }
         scope.launch {
             withContext(ioDispatcher) { appSettings.saveCredentials(credentials) }

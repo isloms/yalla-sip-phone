@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.RegistrationEngine
@@ -41,7 +42,9 @@ class DialerComponent(
             }
                 .drop(1) // skip initial combined emission
                 .first { it }
-            onDisconnected()
+            withContext(Dispatchers.Main) {
+                onDisconnected()
+            }
         }
     }
 
