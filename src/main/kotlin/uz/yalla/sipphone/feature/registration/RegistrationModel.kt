@@ -1,10 +1,11 @@
 package uz.yalla.sipphone.feature.registration
 
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipCredentials
 
 data class FormState(
     val server: String = "",
-    val port: String = SipCredentials.DEFAULT_SIP_PORT.toString(),
+    val port: String = SipConstants.DEFAULT_PORT.toString(),
     val username: String = "",
     val password: String = "",
 )

@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.data.settings
 
 import com.russhwolf.settings.Settings
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipCredentials
 
 class AppSettings {
@@ -18,7 +19,7 @@ class AppSettings {
         val username = settings.getStringOrNull("sip_username") ?: return null
         return SipCredentials(
             server = server,
-            port = settings.getInt("sip_port", SipCredentials.DEFAULT_SIP_PORT),
+            port = settings.getInt("sip_port", SipConstants.DEFAULT_PORT),
             username = username,
             password = "",
         )

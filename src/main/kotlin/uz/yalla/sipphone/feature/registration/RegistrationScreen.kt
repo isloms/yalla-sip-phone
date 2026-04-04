@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.ui.component.ConnectButton
 import uz.yalla.sipphone.ui.component.ConnectionStatusCard
@@ -50,7 +51,7 @@ fun RegistrationScreen(component: RegistrationComponent) {
             component.connect(
                 SipCredentials(
                     server = formState.server.trim(),
-                    port = formState.port.toIntOrNull() ?: SipCredentials.DEFAULT_SIP_PORT,
+                    port = formState.port.toIntOrNull() ?: SipConstants.DEFAULT_PORT,
                     username = formState.username.trim(),
                     password = formState.password,
                 )
