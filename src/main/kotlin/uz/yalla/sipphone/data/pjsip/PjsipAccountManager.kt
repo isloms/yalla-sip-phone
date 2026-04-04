@@ -102,6 +102,7 @@ class PjsipAccountManager(
         try {
             accountConfig.idUri = SipConstants.buildUserUri(credentials.username, credentials.server)
             accountConfig.regConfig.registrarUri = SipConstants.buildRegistrarUri(credentials.server, credentials.port)
+            accountConfig.regConfig.retryIntervalSec = 0  // disable pjsip built-in retry — we handle reconnect ourselves
             accountConfig.sipConfig.authCreds.add(authCred)
             accountConfig.natConfig.sipStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
             accountConfig.natConfig.mediaStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED

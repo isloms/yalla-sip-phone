@@ -161,9 +161,8 @@ class PjsipCallManager(
             }
             _callState.value = state.copy(isOnHold = !state.isOnHold)
         } catch (e: Exception) {
-            logger.error(e) { "toggleHold failed" }
-        } finally {
             holdInProgress = false
+            logger.error(e) { "toggleHold failed" }
         }
     }
 
@@ -232,9 +231,8 @@ class PjsipCallManager(
             }
             _callState.value = state.copy(isOnHold = onHold)
         } catch (e: Exception) {
-            logger.error(e) { "setHold failed" }
-        } finally {
             holdInProgress = false
+            logger.error(e) { "setHold failed" }
         }
     }
 
@@ -304,6 +302,9 @@ class PjsipCallManager(
     }
 
     fun connectCallAudio(call: PjsipCall) {
+        // Reset holdInProgress here — media state callback means re-INVITE completed
+        holdInProgress = false
+
         var info: org.pjsip.pjsua2.CallInfo? = null
         try {
             info = call.getInfo()

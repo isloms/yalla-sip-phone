@@ -39,8 +39,8 @@ class PjsipEndpointManager(private val pjDispatcher: CoroutineContext) {
 
             logWriter = PjsipLogWriter()
             epConfig.logConfig.writer = logWriter
-            epConfig.logConfig.level = 5
-            epConfig.logConfig.consoleLevel = 0
+            epConfig.logConfig.level = 3  // was 5 — level 5 exposes SIP auth headers in logs
+            epConfig.logConfig.consoleLevel = 3
 
             endpoint.libInit(epConfig)
         } finally {
