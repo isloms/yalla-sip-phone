@@ -63,6 +63,13 @@ compose.desktop {
 
             macOS {
                 bundleID = "uz.yalla.sipphone"
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>NSMicrophoneUsageDescription</key>
+                        <string>YallaSipPhone needs microphone access for VoIP calls</string>
+                    """.trimIndent()
+                }
+                entitlementsFile.set(project.file("src/main/resources/entitlements.plist"))
             }
         }
     }
