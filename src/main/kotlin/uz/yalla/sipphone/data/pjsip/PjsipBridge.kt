@@ -87,18 +87,35 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     }
 
     private fun loadNativeLibrary() {
-        val libDir = System.getProperty("pjsip.library.path")
-        if (libDir != null) {
-            val osName = System.getProperty("os.name").lowercase()
-            val libName = when {
-                osName.contains("mac") || osName.contains("darwin") -> "libpjsua2.jnilib"
-                osName.contains("win") -> "pjsua2.dll"
-                else -> "libpjsua2.so" // Linux
-            }
-            System.load("$libDir/$libName")
-        } else {
-            System.loadLibrary("pjsua2")
+        val osName = System.getProperty("os.name").lowercase()
+        val libName = when {
+            osName.contains("mac") || osName.contains("darwin") -> "libpjsua2.jnilib"
+            osName.contains("win") -> "pjsua2.dll"
+            else -> "libpjsua2.so"
         }
+
+        // 1. Try pjsip.library.path (dev mode: ./gradlew run)
+        val devDir = System.getProperty("pjsip.library.path")
+        if (devDir != null) {
+            val devLib = java.io.File("$devDir/$libName")
+            if (devLib.exists()) {
+                System.load(devLib.absolutePath)
+                return
+            }
+        }
+
+        // 2. Try compose.application.resources.dir (packaged app)
+        val resourcesDir = System.getProperty("compose.application.resources.dir")
+        if (resourcesDir != null) {
+            val packagedLib = java.io.File("$resourcesDir/$libName")
+            if (packagedLib.exists()) {
+                System.load(packagedLib.absolutePath)
+                return
+            }
+        }
+
+        // 3. Fallback: system library path
+        System.loadLibrary("pjsua2")
     }
 
     private fun initEndpoint() {

@@ -61,6 +61,7 @@ compose.desktop {
             packageVersion = "1.0.0"
             vendor = "Ildam"
             description = "Yalla SIP Phone - Oktell Operator Softphone"
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("app-resources"))
 
             macOS {
                 bundleID = "uz.yalla.sipphone"
