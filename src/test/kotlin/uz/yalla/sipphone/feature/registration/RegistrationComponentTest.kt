@@ -11,7 +11,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.data.settings.AppSettings
-import uz.yalla.sipphone.domain.FakeSipEngine
+import uz.yalla.sipphone.domain.FakeRegistrationEngine
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
 import kotlin.test.AfterTest
@@ -37,10 +37,10 @@ class RegistrationComponentTest {
     }
 
     private fun createComponent(
-        sipEngine: FakeSipEngine = FakeSipEngine(),
+        sipEngine: FakeRegistrationEngine = FakeRegistrationEngine(),
         appSettings: AppSettings = AppSettings(),
         onRegistered: () -> Unit = {},
-    ): Pair<RegistrationComponent, FakeSipEngine> {
+    ): Pair<RegistrationComponent, FakeRegistrationEngine> {
         val lifecycle = LifecycleRegistry()
         lifecycle.resume()
         val component = RegistrationComponent(
@@ -68,7 +68,7 @@ class RegistrationComponentTest {
     @Test
     fun `onRegistered fires once on Registered state`() = runTest {
         var registeredCount = 0
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         createComponent(sipEngine = engine, onRegistered = { registeredCount++ })
         advanceUntilIdle()
 

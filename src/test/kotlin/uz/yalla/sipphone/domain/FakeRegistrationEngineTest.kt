@@ -7,17 +7,17 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class FakeSipEngineTest {
+class FakeRegistrationEngineTest {
 
     @Test
     fun `initial state is Idle`() {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         assertIs<RegistrationState.Idle>(engine.registrationState.value)
     }
 
     @Test
     fun `register transitions to Registering`() = runTest {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         val credentials = SipCredentials("192.168.0.22", 5060, "102", "pass")
 
         engine.register(credentials)
@@ -28,7 +28,7 @@ class FakeSipEngineTest {
 
     @Test
     fun `simulateRegistered transitions to Registered`() {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         engine.simulateRegistered("sip:102@192.168.0.22")
 
         val state = engine.registrationState.value
@@ -38,7 +38,7 @@ class FakeSipEngineTest {
 
     @Test
     fun `simulateFailed transitions to Failed`() {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         engine.simulateFailed("403 Forbidden")
 
         val state = engine.registrationState.value
@@ -48,7 +48,7 @@ class FakeSipEngineTest {
 
     @Test
     fun `unregister transitions to Idle`() = runTest {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         engine.simulateRegistered()
 
         engine.unregister()
@@ -58,7 +58,7 @@ class FakeSipEngineTest {
 
     @Test
     fun `destroy transitions to Idle`() = runTest {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         engine.simulateRegistered()
 
         engine.destroy()
@@ -68,7 +68,7 @@ class FakeSipEngineTest {
 
     @Test
     fun `init sets initCalled flag`() = runTest {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
 
         val result = engine.init()
 
@@ -78,7 +78,7 @@ class FakeSipEngineTest {
 
     @Test
     fun `register stores last credentials`() = runTest {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         val creds = SipCredentials("10.0.0.1", 5080, "user1", "secret")
 
         engine.register(creds)
@@ -88,13 +88,13 @@ class FakeSipEngineTest {
 
     @Test
     fun `lastCredentials is null before register`() {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
         assertNull(engine.lastCredentials)
     }
 
     @Test
     fun `full lifecycle - register, registered, unregister`() = runTest {
-        val engine = FakeSipEngine()
+        val engine = FakeRegistrationEngine()
 
         assertIs<RegistrationState.Idle>(engine.registrationState.value)
 

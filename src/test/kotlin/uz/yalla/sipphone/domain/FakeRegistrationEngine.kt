@@ -3,7 +3,7 @@ package uz.yalla.sipphone.domain
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class FakeSipEngine : RegistrationEngine {
+class FakeRegistrationEngine : RegistrationEngine {
 
     private val _registrationState = MutableStateFlow<RegistrationState>(RegistrationState.Idle)
     override val registrationState = _registrationState.asStateFlow()
