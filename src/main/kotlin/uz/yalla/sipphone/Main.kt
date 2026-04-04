@@ -120,17 +120,22 @@ fun main() {
             alwaysOnTop = isMainScreen,
             resizable = isMainScreen,
         ) {
-            // ALL window property changes in one place, correct order
+            // ALL window property changes via AWT — Compose windowState alone can't resize from maximized
             LaunchedEffect(isMainScreen) {
-                if (isMainScreen) {
-                    window.minimumSize = java.awt.Dimension(1280, 720)
-                    windowState.placement = WindowPlacement.Maximized
-                } else {
-                    // Order matters: reset min size FIRST, then resize
-                    window.minimumSize = java.awt.Dimension(380, 180)
-                    window.setSize(420, 520)
-                    window.setLocationRelativeTo(null)
-                    windowState.placement = WindowPlacement.Floating
+                javax.swing.SwingUtilities.invokeLater {
+                    if (isMainScreen) {
+                        window.minimumSize = java.awt.Dimension(1280, 720)
+                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.MAXIMIZED_BOTH
+                    } else {
+                        // 1. Un-maximize (NORMAL state)
+                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.NORMAL
+                        // 2. Reset minimum size
+                        window.minimumSize = java.awt.Dimension(380, 180)
+                        // 3. Resize + center
+                        window.setSize(420, 520)
+                        window.setLocationRelativeTo(null)
+                        window.isResizable = false
+                    }
                 }
             }
 
