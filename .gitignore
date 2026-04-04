@@ -10,3 +10,5 @@ META-INF/
 commonMain/
 jvmMain/
 nonWebMain/
+.worktrees/
+.superpowers/
