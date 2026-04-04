@@ -50,7 +50,7 @@ fun RegistrationScreen(component: RegistrationComponent) {
             component.connect(
                 SipCredentials(
                     server = formState.server.trim(),
-                    port = formState.port.toIntOrNull() ?: 5060,
+                    port = formState.port.toIntOrNull() ?: SipCredentials.DEFAULT_SIP_PORT,
                     username = formState.username.trim(),
                     password = formState.password,
                 )

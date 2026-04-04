@@ -18,7 +18,7 @@ class AppSettings {
         val username = settings.getStringOrNull("sip_username") ?: return null
         return SipCredentials(
             server = server,
-            port = settings.getInt("sip_port", 5060),
+            port = settings.getInt("sip_port", SipCredentials.DEFAULT_SIP_PORT),
             username = username,
             password = "",
         )
