@@ -188,7 +188,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
         if (currentCall != null) return@withContext Result.failure(IllegalStateException("Call already active"))
         val acc = account ?: return@withContext Result.failure(IllegalStateException("Not registered"))
         try {
-            val call = PjsipCall(this@PjsipBridge)
+            val call = PjsipCall(this@PjsipBridge, acc)
             val uri = "sip:$number@${extractHost(lastRegisteredServer)}"
             val prm = CallOpParam(true)
             call.makeCall(uri, prm)
@@ -285,12 +285,11 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     }
 
     internal fun onIncomingCall(callId: Int) {
+        val acc = account ?: return
         if (currentCall != null) {
             logger.warn { "Rejecting incoming call (already in call)" }
             try {
-                val call = PjsipCall(this)
-                val acc = account ?: return
-                call.makeCallFromId(acc, callId)
+                val call = PjsipCall(this, acc, callId)
                 val prm = CallOpParam()
                 prm.statusCode = 486
                 call.hangup(prm)
@@ -302,9 +301,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
             return
         }
         try {
-            val call = PjsipCall(this)
-            val acc = account ?: return
-            call.makeCallFromId(acc, callId)
+            val call = PjsipCall(this, acc, callId)
             currentCall = call
             val info = call.getInfo()
             val callerInfo = parseRemoteUri(info.remoteUri)

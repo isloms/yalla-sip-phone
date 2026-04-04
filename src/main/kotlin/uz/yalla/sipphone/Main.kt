@@ -18,6 +18,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.di.appModule
+import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.feature.dialer.DialerComponent
 import uz.yalla.sipphone.feature.registration.RegistrationComponent
@@ -30,8 +31,9 @@ private val logger = KotlinLogging.logger {}
 fun main() {
     val koin = startKoin { modules(appModule) }.koin
 
-    val sipEngine: RegistrationEngine = koin.get()
-    val initResult = runBlocking { sipEngine.init() }
+    val registrationEngine: RegistrationEngine = koin.get()
+    val callEngine: CallEngine = koin.get()
+    val initResult = runBlocking { registrationEngine.init() }
 
     if (initResult.isFailure) {
         javax.swing.JOptionPane.showMessageDialog(
@@ -49,10 +51,10 @@ fun main() {
         RootComponent(
             componentContext = DefaultComponentContext(lifecycle = lifecycle),
             registrationFactory = { ctx, onRegistered ->
-                RegistrationComponent(ctx, sipEngine, appSettings, onRegistered)
+                RegistrationComponent(ctx, registrationEngine, appSettings, onRegistered)
             },
             dialerFactory = { ctx, onDisconnected ->
-                DialerComponent(ctx, sipEngine, onDisconnected)
+                DialerComponent(ctx, registrationEngine, callEngine, onDisconnected)
             },
         )
     }
@@ -65,7 +67,7 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                runBlocking { withTimeoutOrNull(3000) { sipEngine.destroy() } }
+                runBlocking { withTimeoutOrNull(3000) { registrationEngine.destroy() } }
                 exitApplication()
             },
             title = "Yalla SIP Phone",

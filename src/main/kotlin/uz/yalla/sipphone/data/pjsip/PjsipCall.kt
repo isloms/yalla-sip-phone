@@ -1,7 +1,7 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.pjsip.pjsua2.AudioMedia
+import org.pjsip.pjsua2.Account
 import org.pjsip.pjsua2.Call
 import org.pjsip.pjsua2.CallInfo
 import org.pjsip.pjsua2.OnCallMediaStateParam
@@ -11,7 +11,21 @@ import org.pjsip.pjsua2.pjsua_call_media_status
 
 private val logger = KotlinLogging.logger {}
 
-class PjsipCall(private val bridge: PjsipBridge) : Call() {
+/**
+ * For outbound calls: PjsipCall(bridge, account)
+ * For incoming calls: PjsipCall(bridge, account, callId)
+ */
+class PjsipCall : Call {
+
+    private val bridge: PjsipBridge
+
+    constructor(bridge: PjsipBridge, account: Account) : super(account) {
+        this.bridge = bridge
+    }
+
+    constructor(bridge: PjsipBridge, account: Account, callId: Int) : super(account, callId) {
+        this.bridge = bridge
+    }
 
     override fun onCallState(prm: OnCallStateParam) {
         if (bridge.isDestroyed()) return
@@ -36,7 +50,8 @@ class PjsipCall(private val bridge: PjsipBridge) : Call() {
         var info: CallInfo? = null
         try {
             info = getInfo()
-            for (i in 0 until info.media.size().toInt()) {
+            val mediaCount = info.media.size
+            for (i in 0 until mediaCount) {
                 val mediaInfo = info.media[i]
                 if (mediaInfo.type == org.pjsip.pjsua2.pjmedia_type.PJMEDIA_TYPE_AUDIO &&
                     mediaInfo.status == pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE

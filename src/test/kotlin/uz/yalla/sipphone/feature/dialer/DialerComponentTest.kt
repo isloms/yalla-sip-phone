@@ -126,16 +126,6 @@ class DialerComponentTest {
     }
 
     @Test
-    fun `callDuration resets on Idle`() = runTest {
-        val (component, _, callEngine) = createComponent()
-        callEngine.simulateActive()
-        advanceUntilIdle()
-        callEngine.simulateIdle()
-        advanceUntilIdle()
-        assertEquals(0L, component.callDuration.value)
-    }
-
-    @Test
     fun `disconnect delegates to RegistrationEngine`() = runTest {
         val (component, regEngine, _) = createComponent()
         component.disconnect()

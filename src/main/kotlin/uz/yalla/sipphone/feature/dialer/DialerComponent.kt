@@ -4,11 +4,7 @@ import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -28,13 +24,9 @@ class DialerComponent(
     val registrationState: StateFlow<RegistrationState> = registrationEngine.registrationState
     val callState: StateFlow<CallState> = callEngine.callState
 
-    private val _callDuration = MutableStateFlow(0L)
-    val callDuration: StateFlow<Long> = _callDuration.asStateFlow()
-
     private val scope = coroutineScope()
 
     init {
-        // Navigate back on registration drop -- only when no active call
         scope.launch(ioDispatcher) {
             registrationEngine.registrationState
                 .drop(1)
@@ -44,21 +36,6 @@ class DialerComponent(
                     isDisconnected && noActiveCall
                 }
             onDisconnected()
-        }
-
-        // Call timer
-        scope.launch {
-            callEngine.callState.collectLatest { state ->
-                if (state is CallState.Active) {
-                    _callDuration.value = 0
-                    while (true) {
-                        delay(1000)
-                        _callDuration.value++
-                    }
-                } else {
-                    _callDuration.value = 0
-                }
-            }
         }
     }
 
