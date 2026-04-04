@@ -18,21 +18,26 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.pjsip.pjsua2.AccountConfig
+import org.pjsip.pjsua2.AudioMedia
 import org.pjsip.pjsua2.AuthCredInfo
+import org.pjsip.pjsua2.CallOpParam
 import org.pjsip.pjsua2.Endpoint
 import org.pjsip.pjsua2.EpConfig
 import org.pjsip.pjsua2.TransportConfig
 import org.pjsip.pjsua2.pjsip_transport_type_e
 import org.pjsip.pjsua2.pjsua_stun_use
+import uz.yalla.sipphone.domain.CallEngine
+import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.domain.RegistrationEngine
+import uz.yalla.sipphone.domain.parseRemoteUri
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
-class PjsipBridge : RegistrationEngine {
+class PjsipBridge : RegistrationEngine, CallEngine {
 
     private val destroyed = AtomicBoolean(false)
     private val pjDispatcher = newSingleThreadContext("pjsip-event-loop")
@@ -40,6 +45,12 @@ class PjsipBridge : RegistrationEngine {
 
     private val _registrationState = MutableStateFlow<RegistrationState>(RegistrationState.Idle)
     override val registrationState: StateFlow<RegistrationState> = _registrationState.asStateFlow()
+
+    private val _callState = MutableStateFlow<CallState>(CallState.Idle)
+    override val callState: StateFlow<CallState> = _callState.asStateFlow()
+
+    private var currentCall: PjsipCall? = null
+    private var lastRegisteredServer: String? = null
 
     private lateinit var endpoint: Endpoint
     private var account: PjsipAccount? = null
@@ -49,6 +60,9 @@ class PjsipBridge : RegistrationEngine {
     internal fun isDestroyed(): Boolean = destroyed.get()
 
     internal fun updateRegistrationState(state: RegistrationState) {
+        if (state is RegistrationState.Registered) {
+            lastRegisteredServer = state.server
+        }
         _registrationState.value = state
     }
 
@@ -170,20 +184,173 @@ class PjsipBridge : RegistrationEngine {
         }
     }
 
+    override suspend fun makeCall(number: String): Result<Unit> = withContext(pjDispatcher) {
+        if (currentCall != null) return@withContext Result.failure(IllegalStateException("Call already active"))
+        val acc = account ?: return@withContext Result.failure(IllegalStateException("Not registered"))
+        try {
+            val call = PjsipCall(this@PjsipBridge)
+            val uri = "sip:$number@${extractHost(lastRegisteredServer)}"
+            val prm = CallOpParam(true)
+            call.makeCall(uri, prm)
+            prm.delete()
+            currentCall = call
+            _callState.value = CallState.Active(
+                remoteNumber = number,
+                remoteName = null,
+                isOutbound = true,
+                isMuted = false,
+                isOnHold = false,
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logger.error(e) { "makeCall failed" }
+            _callState.value = CallState.Idle
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun answerCall() = withContext(pjDispatcher) {
+        val call = currentCall ?: return@withContext
+        if (_callState.value !is CallState.Ringing) return@withContext
+        try {
+            val prm = CallOpParam()
+            prm.statusCode = 200
+            call.answer(prm)
+            prm.delete()
+        } catch (e: Exception) {
+            logger.error(e) { "answerCall failed" }
+        }
+    }
+
+    override suspend fun hangupCall() = withContext(pjDispatcher) {
+        val call = currentCall ?: return@withContext
+        try {
+            _callState.value = CallState.Ending
+            val prm = CallOpParam()
+            call.hangup(prm)
+            prm.delete()
+        } catch (e: Exception) {
+            logger.error(e) { "hangupCall failed" }
+            clearCurrentCall()
+        }
+    }
+
+    override suspend fun toggleMute() = withContext(pjDispatcher) {
+        val state = _callState.value
+        if (state !is CallState.Active) return@withContext
+        try {
+            val captureMedia = endpoint.audDevManager().captureDevMedia
+            if (state.isMuted) captureMedia.adjustRxLevel(1.0f) else captureMedia.adjustRxLevel(0.0f)
+            captureMedia.delete()
+            _callState.value = state.copy(isMuted = !state.isMuted)
+        } catch (e: Exception) {
+            logger.error(e) { "toggleMute failed" }
+        }
+    }
+
+    override suspend fun toggleHold() = withContext(pjDispatcher) {
+        val state = _callState.value
+        if (state !is CallState.Active) return@withContext
+        val call = currentCall ?: return@withContext
+        try {
+            val prm = CallOpParam()
+            if (state.isOnHold) { prm.opt.flag = 0; call.reinvite(prm) } else call.setHold(prm)
+            prm.delete()
+            _callState.value = state.copy(isOnHold = !state.isOnHold)
+        } catch (e: Exception) {
+            logger.error(e) { "toggleHold failed" }
+        }
+    }
+
+    internal fun onCallConfirmed(call: PjsipCall) {
+        val state = _callState.value
+        if (state is CallState.Ringing) {
+            _callState.value = CallState.Active(
+                remoteNumber = state.callerNumber,
+                remoteName = state.callerName,
+                isOutbound = false,
+                isMuted = false,
+                isOnHold = false,
+            )
+        }
+    }
+
+    internal fun onCallDisconnected(call: PjsipCall) {
+        clearCurrentCall()
+        try {
+            call.delete()
+        } catch (e: Exception) {
+            logger.warn(e) { "Error deleting call object" }
+        }
+    }
+
+    internal fun onIncomingCall(callId: Int) {
+        if (currentCall != null) {
+            logger.warn { "Rejecting incoming call (already in call)" }
+            try {
+                val call = PjsipCall(this)
+                val acc = account ?: return
+                call.makeCallFromId(acc, callId)
+                val prm = CallOpParam()
+                prm.statusCode = 486
+                call.hangup(prm)
+                prm.delete()
+                call.delete()
+            } catch (e: Exception) {
+                logger.error(e) { "Failed to reject incoming call" }
+            }
+            return
+        }
+        try {
+            val call = PjsipCall(this)
+            val acc = account ?: return
+            call.makeCallFromId(acc, callId)
+            currentCall = call
+            val info = call.getInfo()
+            val callerInfo = parseRemoteUri(info.remoteUri)
+            info.delete()
+            _callState.value = CallState.Ringing(
+                callerNumber = callerInfo.number,
+                callerName = callerInfo.displayName,
+            )
+            logger.info { "Incoming call from: ${callerInfo.displayName ?: callerInfo.number}" }
+        } catch (e: Exception) {
+            logger.error(e) { "Error handling incoming call" }
+            clearCurrentCall()
+        }
+    }
+
+    private fun clearCurrentCall() {
+        currentCall = null
+        _callState.value = CallState.Idle
+    }
+
+    internal fun getPlaybackDevMedia(): AudioMedia = endpoint.audDevManager().playbackDevMedia
+    internal fun getCaptureDevMedia(): AudioMedia = endpoint.audDevManager().captureDevMedia
+
+    private fun extractHost(serverUri: String?): String {
+        val uri = serverUri ?: return ""
+        val atIndex = uri.lastIndexOf('@')
+        return if (atIndex >= 0) uri.substring(atIndex + 1) else uri
+    }
+
     override suspend fun destroy() {
         if (!destroyed.compareAndSet(false, true)) return
         withContext(pjDispatcher) {
+            currentCall?.let { call ->
+                try {
+                    val prm = CallOpParam()
+                    call.hangup(prm)
+                    prm.delete()
+                } catch (_: Exception) {}
+            }
+            currentCall = null
+            _callState.value = CallState.Idle
             pollJob?.cancel()
             pollJob?.join()
-
             try { account?.shutdown() } catch (_: Exception) {}
             account = null
             logWriter = null
-
-            // Skip libDestroy() -- it calls Runtime.gc() which triggers SWIG finalizers
-            // on the finalizer thread (unregistered with pjsip), causing SIGSEGV.
-            // OS reclaims all native resources on process exit.
-
             _registrationState.value = RegistrationState.Idle
         }
         scope.cancel()
