@@ -52,6 +52,16 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
 }
 
+// Hot reload JVM args (hotRun doesn't inherit compose.desktop.application.jvmArgs)
+tasks.matching { it.name.startsWith("hotRun") || it.name.startsWith("hotDev") }.configureEach {
+    if (this is JavaExec) {
+        jvmArgs("-Dpjsip.library.path=${projectDir}/libs")
+        jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
+        jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
+        jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "uz.yalla.sipphone.MainKt"
