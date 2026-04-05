@@ -15,7 +15,7 @@ class MockAuthRepositoryTest {
         assertTrue(result.isSuccess)
         val auth = result.getOrThrow()
         assertEquals("101", auth.sipCredentials.username)
-        assertEquals("192.168.0.22", auth.sipCredentials.server)
+        assertEquals("192.168.30.103", auth.sipCredentials.server)
         assertEquals(5060, auth.sipCredentials.port)
         assertEquals("Alisher", auth.agent.name)
         assertEquals("agent-042", auth.agent.id)
