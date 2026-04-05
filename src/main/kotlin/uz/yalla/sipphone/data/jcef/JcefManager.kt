@@ -46,9 +46,14 @@ class JcefManager {
             val builder = CefAppBuilder()
             builder.setInstallDir(File("jcef-bundle"))
 
+            val cacheDir = File(System.getProperty("user.home"), ".yalla-sip-phone/cef-cache")
+            cacheDir.mkdirs()
+
             builder.cefSettings.apply {
                 windowless_rendering_enabled = false
                 log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING
+                root_cache_path = cacheDir.absolutePath
+                cache_path = File(cacheDir, "default").absolutePath
                 if (debugPort > 0) {
                     remote_debugging_port = debugPort
                 }
