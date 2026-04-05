@@ -1,5 +1,6 @@
 package uz.yalla.sipphone.data.jcef
 
+import com.jetbrains.cef.JCefAppConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.cef.CefApp
 import org.cef.CefClient
@@ -41,11 +42,9 @@ class JcefManager {
         logger.info { "Initializing JCEF..." }
 
         SwingUtilities.invokeAndWait {
-            if (!CefApp.startup(emptyArray())) {
-                throw IllegalStateException("CefApp.startup() failed")
-            }
-
-            val settings = CefSettings().apply {
+            // Use JetBrains' JCefAppConfig to auto-detect Chromium paths (icudtl.dat, locales, etc.)
+            val config = JCefAppConfig.getInstance()
+            val settings = config.cefSettings.apply {
                 windowless_rendering_enabled = false
                 log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING
                 if (debugPort > 0) {
@@ -53,6 +52,7 @@ class JcefManager {
                 }
             }
 
+            CefApp.startup(config.appArgs)
             cefApp = CefApp.getInstance(settings)
             cefClient = cefApp!!.createClient()
 
