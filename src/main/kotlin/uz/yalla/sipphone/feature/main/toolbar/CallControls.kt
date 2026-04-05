@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
-import uz.yalla.sipphone.ui.theme.LocalExtendedColors
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
 @Composable
@@ -129,7 +128,7 @@ fun CallControls(
                             .size(32.dp)
                             .pointerHoverIcon(PointerIcon.Hand)
                             .background(
-                                LocalExtendedColors.current.success,
+                                colors.callReady,
                                 shape = RoundedCornerShape(8.dp),
                             ),
                         colors = IconButtonDefaults.iconButtonColors(

@@ -10,20 +10,16 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
+import uz.yalla.sipphone.data.jcef.BridgeSecurity
 import uz.yalla.sipphone.data.jcef.JcefManager
-import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.FakeCallEngine
 import uz.yalla.sipphone.domain.FakeRegistrationEngine
-import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.domain.SipCredentials
-import uz.yalla.sipphone.feature.dialer.DialerComponent
 import uz.yalla.sipphone.feature.login.LoginComponent
 import uz.yalla.sipphone.feature.main.MainComponent
-import uz.yalla.sipphone.feature.registration.RegistrationComponent
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -56,28 +52,6 @@ class RootComponentTest {
         val lifecycle = LifecycleRegistry()
         lifecycle.resume()
         val factory = object : ComponentFactory {
-            override fun createRegistration(
-                context: com.arkivanov.decompose.ComponentContext,
-                onRegistered: () -> Unit,
-            ) = RegistrationComponent(
-                componentContext = context,
-                sipEngine = fakeRegistrationEngine,
-                appSettings = AppSettings(),
-                onRegistered = onRegistered,
-                ioDispatcher = testDispatcher,
-            )
-
-            override fun createDialer(
-                context: com.arkivanov.decompose.ComponentContext,
-                onDisconnected: () -> Unit,
-            ) = DialerComponent(
-                componentContext = context,
-                registrationEngine = fakeRegistrationEngine,
-                callEngine = fakeCallEngine,
-                onDisconnected = onDisconnected,
-                ioDispatcher = testDispatcher,
-            )
-
             override fun createLogin(
                 context: com.arkivanov.decompose.ComponentContext,
                 onLoginSuccess: (AuthResult) -> Unit,
@@ -103,6 +77,8 @@ class RootComponentTest {
                 registrationEngine = fakeRegistrationEngine,
                 jcefManager = JcefManager(),
                 eventEmitter = BridgeEventEmitter(auditLog = BridgeAuditLog()),
+                bridgeSecurity = BridgeSecurity(),
+                bridgeAuditLog = BridgeAuditLog(),
                 onLogout = onLogout,
             )
         }
