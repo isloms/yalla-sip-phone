@@ -44,11 +44,22 @@ class JcefManager {
 
         SwingUtilities.invokeAndWait {
             val builder = CefAppBuilder()
-            // Packaged app: use compose.application.resources.dir
+            // Packaged app on Windows: Program Files is read-only, use user-writable dir
             // Dev mode: fall back to project-relative jcef-bundle/
             val resourcesDir = System.getProperty("compose.application.resources.dir")
             val jcefDir = if (resourcesDir != null) {
-                File(resourcesDir, "jcef-bundle")
+                val bundledDir = File(resourcesDir, "jcef-bundle")
+                if (bundledDir.canWrite()) {
+                    bundledDir
+                } else {
+                    // Copy to writable location if needed (Windows Program Files is read-only)
+                    val userDir = File(System.getProperty("user.home"), ".yalla-sip-phone/jcef-bundle")
+                    if (!userDir.exists() && bundledDir.exists()) {
+                        logger.info { "Copying JCEF bundle to writable location: ${userDir.absolutePath}" }
+                        bundledDir.copyRecursively(userDir, overwrite = true)
+                    }
+                    userDir
+                }
             } else {
                 File("jcef-bundle")
             }
