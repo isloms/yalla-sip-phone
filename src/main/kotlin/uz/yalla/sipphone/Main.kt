@@ -104,12 +104,16 @@ fun main() {
         Window(
             onCloseRequest = {
                 if (isMainScreen) {
-                    val confirm = javax.swing.JOptionPane.showConfirmDialog(
-                        null,
+                    // Create dialog with alwaysOnTop to appear above our alwaysOnTop window
+                    val pane = javax.swing.JOptionPane(
                         Strings.SETTINGS_LOGOUT_CONFIRM,
-                        Strings.SETTINGS_LOGOUT_CONFIRM_TITLE,
+                        javax.swing.JOptionPane.QUESTION_MESSAGE,
                         javax.swing.JOptionPane.YES_NO_OPTION,
                     )
+                    val dialog = pane.createDialog(null, Strings.SETTINGS_LOGOUT_CONFIRM_TITLE)
+                    dialog.isAlwaysOnTop = true
+                    dialog.isVisible = true
+                    val confirm = pane.value as? Int ?: javax.swing.JOptionPane.NO_OPTION
                     if (confirm == javax.swing.JOptionPane.YES_OPTION) {
                         runBlocking {
                             withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }

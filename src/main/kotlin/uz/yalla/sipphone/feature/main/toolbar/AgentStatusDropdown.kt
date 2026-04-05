@@ -16,10 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +34,6 @@ import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-/** Parse "#RRGGBB" hex string to Compose [Color]. */
 private fun parseHexColor(hex: String): Color {
     val sanitized = hex.removePrefix("#")
     val argb = sanitized.toLong(16) or 0xFF000000
@@ -46,13 +41,9 @@ private fun parseHexColor(hex: String): Color {
 }
 
 /**
- * Agent status selector that expands inline (no popup) to avoid z-order issues
- * with heavyweight SwingPanel (JCEF browser).
- *
- * Collapsed: colored dot + status name + arrow.
- * Expanded: horizontal row of colored dots (one per status) with tooltips.
+ * Agent status selector — expands inline to show status options with labels.
+ * No popups or tooltips (they render behind JCEF SwingPanel).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentStatusDropdown(
     currentStatus: AgentStatus,
@@ -70,49 +61,47 @@ fun AgentStatusDropdown(
         label = "agent-status-toggle",
     ) { isExpanded ->
         if (isExpanded) {
-            // Expanded: inline row of status dots
+            // Expanded: inline row of status chips with labels
             Row(
                 modifier = Modifier
                     .clip(tokens.shapeSmall)
-                    .background(colors.backgroundBase)
+                    .background(colors.backgroundBase.copy(alpha = 0.5f))
                     .padding(horizontal = tokens.spacingXs, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 AgentStatus.entries.forEach { status ->
                     val statusColor = parseHexColor(status.colorHex)
-                    val isCurrentStatus = status == currentStatus
+                    val isSelected = status == currentStatus
 
-                    TooltipBox(
-                        positionProvider = androidx.compose.material3.TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                        tooltip = { PlainTooltip { Text(status.displayName) } },
-                        state = rememberTooltipState(),
+                    Row(
+                        modifier = Modifier
+                            .pointerHoverIcon(PointerIcon.Hand)
+                            .clip(tokens.shapeSmall)
+                            .then(
+                                if (isSelected) Modifier.background(statusColor.copy(alpha = 0.15f))
+                                else Modifier
+                            )
+                            .clickable {
+                                onStatusSelected(status)
+                                expanded = false
+                            }
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Box(
-                            modifier = Modifier
-                                .pointerHoverIcon(PointerIcon.Hand)
+                            Modifier
+                                .size(6.dp)
                                 .clip(CircleShape)
-                                .then(
-                                    if (isCurrentStatus) {
-                                        Modifier
-                                            .background(statusColor.copy(alpha = 0.2f), CircleShape)
-                                            .padding(3.dp)
-                                    } else {
-                                        Modifier.padding(3.dp)
-                                    },
-                                )
-                                .clickable {
-                                    onStatusSelected(status)
-                                    expanded = false
-                                },
-                        ) {
-                            Box(
-                                Modifier
-                                    .size(if (isCurrentStatus) 12.dp else tokens.indicatorDot)
-                                    .clip(CircleShape)
-                                    .background(statusColor),
-                            )
-                        }
+                                .background(statusColor),
+                        )
+                        Text(
+                            text = status.displayName,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) statusColor else colors.textSubtle,
+                        )
                     }
                 }
             }
