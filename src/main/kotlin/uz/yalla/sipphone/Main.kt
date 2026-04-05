@@ -75,7 +75,7 @@ fun main() {
     }
 
     val jcefManager: JcefManager = koin.get()
-    // JCEF initialization deferred — must happen AFTER Compose window is created on macOS
+    jcefManager.initialize(debugPort = 9222)
 
     Runtime.getRuntime().addShutdownHook(Thread {
         runBlocking {
@@ -252,15 +252,6 @@ fun main() {
                         }
                     }
                 }, AWTEvent.KEY_EVENT_MASK)
-            }
-
-            // Initialize JCEF AFTER window is created — required on macOS
-            LaunchedEffect(Unit) {
-                if (!jcefManager.isInitialized) {
-                    javax.swing.SwingUtilities.invokeLater {
-                        jcefManager.initialize(debugPort = 9222)
-                    }
-                }
             }
 
             LifecycleController(decomposeLifecycle, windowState)
