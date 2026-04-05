@@ -17,8 +17,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -192,6 +194,8 @@ private fun ZoneBContent(
 
     when (callState) {
         is CallState.Idle -> {
+            var isFocused by remember { mutableStateOf(false) }
+
             BasicTextField(
                 value = phoneInput,
                 onValueChange = onPhoneInputChange,
@@ -201,12 +205,15 @@ private fun ZoneBContent(
                     fontFamily = FontFamily.SansSerif,
                 ),
                 singleLine = true,
-                cursorBrush = SolidColor(colors.brandPrimary),
+                cursorBrush = if (isFocused) SolidColor(colors.brandPrimary) else SolidColor(Color.Transparent),
                 decorationBox = { innerTextField ->
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .background(colors.backgroundBase, shape = RoundedCornerShape(6.dp))
+                            .background(
+                                if (isFocused) colors.backgroundBase else colors.backgroundBase.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(6.dp),
+                            )
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                     ) {
                         if (phoneInput.isEmpty()) {
@@ -219,7 +226,9 @@ private fun ZoneBContent(
                         innerTextField()
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { isFocused = it.isFocused },
             )
         }
 
