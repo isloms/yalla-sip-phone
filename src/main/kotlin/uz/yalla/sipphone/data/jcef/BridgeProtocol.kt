@@ -193,3 +193,11 @@ data class BridgeVersionInfo(
     val version: String,
     val capabilities: List<String>,
 )
+
+// --- DTMF & Transfer Payloads ---
+
+@Serializable
+data class DtmfPayload(val callId: String, val digits: String)
+
+@Serializable
+data class TransferPayload(val callId: String, val destination: String)

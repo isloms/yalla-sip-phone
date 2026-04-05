@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.domain
 
 object SipConstants {
+    const val APP_VERSION = "1.0.0"
     const val DEFAULT_PORT = 5060
     const val USER_AGENT = "YallaSipPhone/1.0"
     const val AUTH_SCHEME_DIGEST = "digest"
@@ -28,11 +29,48 @@ object SipConstants {
         const val FALLBACK = "pjsua2"
     }
 
-    fun buildUserUri(user: String, server: String): String = "sip:$user@$server"
+    private val VALID_HOST_REGEX = Regex("""^[a-zA-Z0-9.\-:]+$""")
+    private val VALID_USERNAME_REGEX = Regex("""^[a-zA-Z0-9._\-+]+$""")
+    private val VALID_CALL_NUMBER_REGEX = Regex("""^[0-9*#+]+$""")
 
-    fun buildRegistrarUri(server: String, port: Int): String = "sip:$server:$port"
+    /**
+     * Rejects control characters and SIP header injection attempts.
+     */
+    fun validateSipInput(value: String): Boolean {
+        if (value.isBlank()) return false
+        if (value.any { it.isISOControl() }) return false
+        if (value.contains('\r') || value.contains('\n')) return false
+        if (value.contains(';') || value.contains('<') || value.contains('>')) return false
+        return true
+    }
 
-    fun buildCallUri(number: String, host: String): String = "sip:$number@$host"
+    fun buildUserUri(user: String, server: String): String {
+        require(validateSipInput(user) && VALID_USERNAME_REGEX.matches(user)) {
+            "Invalid SIP username: $user"
+        }
+        require(validateSipInput(server) && VALID_HOST_REGEX.matches(server)) {
+            "Invalid SIP server: $server"
+        }
+        return "sip:$user@$server"
+    }
+
+    fun buildRegistrarUri(server: String, port: Int): String {
+        require(validateSipInput(server) && VALID_HOST_REGEX.matches(server)) {
+            "Invalid SIP server: $server"
+        }
+        require(port in 1..65535) { "Invalid port: $port" }
+        return "sip:$server:$port"
+    }
+
+    fun buildCallUri(number: String, host: String): String {
+        require(validateSipInput(number) && VALID_CALL_NUMBER_REGEX.matches(number)) {
+            "Invalid call number: $number"
+        }
+        require(validateSipInput(host) && VALID_HOST_REGEX.matches(host)) {
+            "Invalid SIP host: $host"
+        }
+        return "sip:$number@$host"
+    }
 
     fun extractHostFromUri(serverUri: String?): String {
         val uri = serverUri ?: return ""

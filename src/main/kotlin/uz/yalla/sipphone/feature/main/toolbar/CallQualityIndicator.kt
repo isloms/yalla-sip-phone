@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.CallState
@@ -33,37 +32,37 @@ fun CallQualityIndicator(
     quality: CallQuality = CallQuality.GOOD, // Static "Good" until real MOS in Session 2
     modifier: Modifier = Modifier,
 ) {
-    val tokens = LocalAppTokens.current
-    val colors = LocalYallaColors.current
-    val isVisible = callState is CallState.Active
-
-    val qualityColor = when (quality) {
-        CallQuality.EXCELLENT, CallQuality.GOOD -> colors.callReady
-        CallQuality.FAIR -> colors.callIncoming
-        CallQuality.POOR -> colors.callMuted
-    }
-
-    // Reserve space always (40dp), but only show content during active call
+    // Reserve space always (40dp), but skip composition when not in active call
     Box(
-        modifier = modifier.width(40.dp),
+        modifier = modifier.width(72.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier.alpha(if (isVisible) 1f else 0f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
-        ) {
-            Box(
-                Modifier
-                    .size(tokens.qualityDotSize)
-                    .clip(CircleShape)
-                    .background(qualityColor),
-            )
-            Text(
-                text = quality.label,
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textSubtle,
-            )
+        if (callState is CallState.Active) {
+            val tokens = LocalAppTokens.current
+            val colors = LocalYallaColors.current
+
+            val qualityColor = when (quality) {
+                CallQuality.EXCELLENT, CallQuality.GOOD -> colors.callReady
+                CallQuality.FAIR -> colors.callIncoming
+                CallQuality.POOR -> colors.callMuted
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
+            ) {
+                Box(
+                    Modifier
+                        .size(tokens.qualityDotSize)
+                        .clip(CircleShape)
+                        .background(qualityColor),
+                )
+                Text(
+                    text = quality.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textSubtle,
+                )
+            }
         }
     }
 }

@@ -45,10 +45,10 @@ data class YallaColors(
             errorText = Color(0xFFD32F2F),         // WCAG 5.5:1 on white
             errorIndicator = Color(0xFFF42500),
             callReady = Color(0xFF2E7D32),
-            callIncoming = Color(0xFFF59E0B),
+            callIncoming = Color(0xFFD97706),
             callMuted = Color(0xFFF42500),
-            callOffline = Color(0xFF98A2B3),
-            callWrapUp = Color(0xFF8B5CF6),
+            callOffline = Color(0xFF6B7280),
+            callWrapUp = Color(0xFF7C3AED),
         )
 
         val Dark = YallaColors(
@@ -64,7 +64,7 @@ data class YallaColors(
             borderFilled = Color(0xFFFFFFFF),
             errorText = Color(0xFFFF6B6B),          // WCAG 5.8:1 on dark
             errorIndicator = Color(0xFFF42500),
-            callReady = Color(0xFF4CAF50),          // WCAG 4.8:1 on dark
+            callReady = Color(0xFF66BB6A),          // WCAG AA on dark
             callIncoming = Color(0xFFF59E0B),
             callMuted = Color(0xFFF42500),
             callOffline = Color(0xFF98A2B3),

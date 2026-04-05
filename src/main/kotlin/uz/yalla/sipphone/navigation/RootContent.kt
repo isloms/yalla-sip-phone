@@ -10,10 +10,8 @@ import com.arkivanov.decompose.extensions.compose.stack.animation.plus
 import com.arkivanov.decompose.extensions.compose.stack.animation.slide
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
-import uz.yalla.sipphone.feature.dialer.DialerScreen
 import uz.yalla.sipphone.feature.login.LoginScreen
 import uz.yalla.sipphone.feature.main.MainScreen
-import uz.yalla.sipphone.feature.registration.RegistrationScreen
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 
 @Composable
@@ -41,10 +39,6 @@ fun RootContent(
                     isDarkTheme = isDarkTheme,
                     onThemeToggle = onThemeToggle,
                 )
-            is RootComponent.Child.Registration ->
-                RegistrationScreen(instance.component)
-            is RootComponent.Child.Dialer ->
-                DialerScreen(instance.component)
         }
     }
 }

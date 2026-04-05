@@ -9,10 +9,8 @@ import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.pushNew
 import com.arkivanov.decompose.value.Value
 import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.feature.dialer.DialerComponent
 import uz.yalla.sipphone.feature.login.LoginComponent
 import uz.yalla.sipphone.feature.main.MainComponent
-import uz.yalla.sipphone.feature.registration.RegistrationComponent
 
 class RootComponent(
     componentContext: ComponentContext,
@@ -39,29 +37,27 @@ class RootComponent(
                     navigation.pushNew(Screen.Main)
                 },
             )
-            is Screen.Main -> Child.Main(
-                factory.createMain(context, currentAuthResult!!) {
-                    currentAuthResult = null
+            is Screen.Main -> {
+                val auth = currentAuthResult ?: run {
                     navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
-                },
-            )
-            // Keep old screens working for back-compat
-            is Screen.Registration -> Child.Registration(
-                factory.createRegistration(context) {
-                    navigation.pushNew(Screen.Dialer)
-                },
-            )
-            is Screen.Dialer -> Child.Dialer(
-                factory.createDialer(context) {
-                    navigation.pop()
-                },
-            )
+                    return@createChild Child.Login(
+                        factory.createLogin(context) { authResult ->
+                            currentAuthResult = authResult
+                            navigation.pushNew(Screen.Main)
+                        },
+                    )
+                }
+                Child.Main(
+                    factory.createMain(context, auth) {
+                        currentAuthResult = null
+                        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+                    },
+                )
+            }
         }
 
     sealed interface Child {
         data class Login(val component: LoginComponent) : Child
         data class Main(val component: MainComponent) : Child
-        data class Registration(val component: RegistrationComponent) : Child
-        data class Dialer(val component: DialerComponent) : Child
     }
 }

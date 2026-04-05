@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -71,13 +72,14 @@ fun AgentStatusDropdown(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 AgentStatus.entries.forEach { status ->
-                    val statusColor = parseHexColor(status.colorHex)
+                    val statusColor = remember(status) { parseHexColor(status.colorHex) }
                     val isSelected = status == currentStatus
 
                     Row(
                         modifier = Modifier
                             .pointerHoverIcon(PointerIcon.Hand)
                             .clip(tokens.shapeSmall)
+                            .heightIn(min = tokens.dropdownItemMinHeight)
                             .then(
                                 if (isSelected) Modifier.background(statusColor.copy(alpha = 0.15f))
                                 else Modifier
@@ -86,13 +88,13 @@ fun AgentStatusDropdown(
                                 onStatusSelected(status)
                                 expanded = false
                             }
-                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Box(
                             Modifier
-                                .size(6.dp)
+                                .size(8.dp)
                                 .clip(CircleShape)
                                 .background(statusColor),
                         )
@@ -112,15 +114,16 @@ fun AgentStatusDropdown(
                     .pointerHoverIcon(PointerIcon.Hand)
                     .clip(tokens.shapeSmall)
                     .clickable { expanded = true }
-                    .padding(horizontal = tokens.spacingXs, vertical = 2.dp),
+                    .padding(horizontal = tokens.spacingXs, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
             ) {
+                val currentStatusColor = remember(currentStatus) { parseHexColor(currentStatus.colorHex) }
                 Box(
                     Modifier
                         .size(tokens.indicatorDot)
                         .clip(CircleShape)
-                        .background(parseHexColor(currentStatus.colorHex)),
+                        .background(currentStatusColor),
                 )
                 Text(
                     text = currentStatus.displayName,

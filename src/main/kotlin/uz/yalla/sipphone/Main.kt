@@ -20,6 +20,7 @@ import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.awt.AWTEvent
 import java.awt.event.KeyEvent
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -60,11 +61,15 @@ fun main() {
     val jcefManager: JcefManager = koin.get()
     jcefManager.initialize(debugPort = 9222)
 
+    val jcefShutdownDone = AtomicBoolean(false)
+
     Runtime.getRuntime().addShutdownHook(Thread {
         runBlocking {
             withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
         }
-        jcefManager.shutdown()
+        if (jcefShutdownDone.compareAndSet(false, true)) {
+            jcefManager.shutdown()
+        }
     })
 
     val decomposeLifecycle = LifecycleRegistry()
@@ -118,7 +123,9 @@ fun main() {
                         runBlocking {
                             withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
                         }
-                        jcefManager.shutdown()
+                        if (jcefShutdownDone.compareAndSet(false, true)) {
+                            jcefManager.shutdown()
+                        }
                         exitApplication()
                     }
                 } else {
@@ -155,7 +162,8 @@ fun main() {
             LaunchedEffect(Unit) {
                 java.awt.Toolkit.getDefaultToolkit().addAWTEventListener({ event ->
                     if (event is KeyEvent && event.id == KeyEvent.KEY_PRESSED) {
-                        val ctrl = event.isControlDown || event.isMetaDown
+                        // macOS: Cmd+H = Hide, Cmd+M = Minimize — use Ctrl on all platforms
+                        val ctrl = event.isControlDown
                         val shift = event.isShiftDown
 
                         val currentChild = rootComponent.childStack.value.active.instance
@@ -194,7 +202,7 @@ fun main() {
                             // Ctrl+L = Focus phone input (idle state only)
                             ctrl && !shift && event.keyCode == KeyEvent.VK_L
                                 && callState is CallState.Idle -> {
-                                // Focus on phone input — full focus management comes with JCEF
+                                toolbar.requestPhoneInputFocus()
                                 event.consume()
                             }
                         }

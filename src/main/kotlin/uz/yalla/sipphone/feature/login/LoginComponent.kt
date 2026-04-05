@@ -39,6 +39,7 @@ class LoginComponent(
     val registrationState: StateFlow<RegistrationState> = registrationEngine.registrationState
 
     private val scope = coroutineScope()
+    @Volatile
     private var lastAuthResult: AuthResult? = null
 
     init {
@@ -76,11 +77,11 @@ class LoginComponent(
         }
     }
 
-    fun manualConnect(server: String, port: Int, username: String, password: String) {
+    fun manualConnect(server: String, port: Int, username: String, password: String, dispatcherUrl: String = "") {
         val credentials = SipCredentials(server = server, port = port, username = username, password = password)
         lastAuthResult = AuthResult(
             sipCredentials = credentials,
-            dispatcherUrl = "",
+            dispatcherUrl = dispatcherUrl,
             agent = AgentInfo("manual", username),
         )
         _loginState.value = LoginState.Loading

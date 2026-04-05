@@ -17,6 +17,12 @@ class FakeCallEngine(
     var toggleHoldCount = 0
     var setMuteCount = 0
     var setHoldCount = 0
+    var sendDtmfCount = 0
+    var lastDtmfDigits: String? = null
+    var sendDtmfResult: Result<Unit> = Result.success(Unit)
+    var transferCallCount = 0
+    var lastTransferDestination: String? = null
+    var transferCallResult: Result<Unit> = Result.success(Unit)
 
     override suspend fun makeCall(number: String): Result<Unit> {
         lastCallNumber = number
@@ -53,6 +59,18 @@ class FakeCallEngine(
         if (state is CallState.Active && state.callId == callId) {
             _callState.value = state.copy(isOnHold = onHold)
         }
+    }
+
+    override suspend fun sendDtmf(callId: String, digits: String): Result<Unit> {
+        sendDtmfCount++
+        lastDtmfDigits = digits
+        return sendDtmfResult
+    }
+
+    override suspend fun transferCall(callId: String, destination: String): Result<Unit> {
+        transferCallCount++
+        lastTransferDestination = destination
+        return transferCallResult
     }
 
     fun simulateRinging(

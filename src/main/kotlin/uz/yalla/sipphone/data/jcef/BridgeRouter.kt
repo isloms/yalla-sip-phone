@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
@@ -20,9 +21,26 @@ import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.PhoneNumberValidator
 import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipConstants
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * Dispatches JSON commands arriving from the embedded web page to domain-layer operations.
+ *
+ * The router is the server side of the `window.yallaSipQuery` / `window.yallaSipQueryCancel`
+ * JCEF message channel. Each command is JSON-decoded to a [BridgeCommand], rate-checked via
+ * [BridgeSecurity], dispatched to the appropriate handler, and the result is returned as a
+ * serialised [CommandResult] JSON string.
+ *
+ * Supported commands: `_ready`, `makeCall`, `answer`, `reject`, `hangup`, `setMute`, `setHold`,
+ * `sendDtmf`, `transferCall`, `setAgentStatus`, `getState`, `getVersion`.
+ *
+ * All command handlers run on [Dispatchers.IO] inside a coroutine scoped to the router lifetime.
+ * Handlers have a 30-second timeout; exceeding it returns an `INTERNAL_ERROR` response.
+ *
+ * Lifecycle: call [install] once after the [CefClient] is created, and [dispose] before app exit.
+ */
 class BridgeRouter(
     private val callEngine: CallEngine,
     private val registrationEngine: RegistrationEngine,
@@ -34,6 +52,12 @@ class BridgeRouter(
     private var messageRouter: CefMessageRouter? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Registers the JCEF message router on [client].
+     *
+     * Must be called before the browser is created so the router intercepts
+     * `yallaSipQuery` calls from page load onwards.
+     */
     fun install(client: CefClient) {
         val config = CefMessageRouterConfig().apply {
             jsQueryFunction = "yallaSipQuery"
@@ -47,7 +71,13 @@ class BridgeRouter(
 
     fun getMessageRouter(): CefMessageRouter? = messageRouter
 
+    /**
+     * Cancels the coroutine scope and disposes the underlying [CefMessageRouter].
+     *
+     * Must be called before [SipStackLifecycle.shutdown] to avoid dangling JCEF callbacks.
+     */
     fun dispose() {
+        scope.cancel()
         messageRouter?.dispose()
         messageRouter = null
     }
@@ -104,6 +134,8 @@ class BridgeRouter(
             "hangup" -> handleHangup(cmd.params)
             "setMute" -> handleSetMute(cmd.params)
             "setHold" -> handleSetHold(cmd.params)
+            "sendDtmf" -> handleSendDtmf(cmd.params)
+            "transferCall" -> handleTransferCall(cmd.params)
             "setAgentStatus" -> handleSetAgentStatus(cmd.params)
             "getState" -> handleGetState()
             "getVersion" -> handleGetVersion()
@@ -193,6 +225,46 @@ class BridgeRouter(
         return CommandResult.success(mapOf("isOnHold" to onHold.toString()))
     }
 
+    private suspend fun handleSendDtmf(params: Map<String, String>): CommandResult {
+        val callId = params["callId"]
+            ?: return CommandResult.error("NO_ACTIVE_CALL", "Missing callId", false)
+        val digits = params["digits"]
+            ?: return CommandResult.error("INTERNAL_ERROR", "Missing digits", false)
+        if (callEngine.callState.value !is CallState.Active) {
+            return CommandResult.error("NO_ACTIVE_CALL", "No active call", false)
+        }
+        val result = callEngine.sendDtmf(callId, digits)
+        return if (result.isSuccess) {
+            CommandResult.success()
+        } else {
+            CommandResult.error(
+                "INTERNAL_ERROR",
+                result.exceptionOrNull()?.message ?: "DTMF failed",
+                false,
+            )
+        }
+    }
+
+    private suspend fun handleTransferCall(params: Map<String, String>): CommandResult {
+        val callId = params["callId"]
+            ?: return CommandResult.error("NO_ACTIVE_CALL", "Missing callId", false)
+        val destination = params["destination"]
+            ?: return CommandResult.error("INTERNAL_ERROR", "Missing destination", false)
+        if (callEngine.callState.value !is CallState.Active) {
+            return CommandResult.error("NO_ACTIVE_CALL", "No active call", false)
+        }
+        val result = callEngine.transferCall(callId, destination)
+        return if (result.isSuccess) {
+            CommandResult.success(mapOf("destination" to destination))
+        } else {
+            CommandResult.error(
+                "INTERNAL_ERROR",
+                result.exceptionOrNull()?.message ?: "Transfer failed",
+                false,
+            )
+        }
+    }
+
     private fun handleSetAgentStatus(params: Map<String, String>): CommandResult {
         val statusStr = params["status"]
             ?: return CommandResult.error("INTERNAL_ERROR", "Missing status", false)
@@ -246,8 +318,8 @@ class BridgeRouter(
 
     private fun handleGetVersion(): CommandResult {
         val info = BridgeVersionInfo(
-            version = "1.0.0",
-            capabilities = listOf("call", "agentStatus", "callQuality"),
+            version = SipConstants.APP_VERSION,
+            capabilities = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer"),
         )
         val json = bridgeJson.encodeToString(info)
         return CommandResult(success = true, data = mapOf("_raw" to json))

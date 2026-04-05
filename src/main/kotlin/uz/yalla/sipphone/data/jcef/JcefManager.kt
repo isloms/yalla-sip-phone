@@ -44,14 +44,21 @@ class JcefManager {
 
         SwingUtilities.invokeAndWait {
             val builder = CefAppBuilder()
-            builder.setInstallDir(File("jcef-bundle"))
+            // Packaged app: use compose.application.resources.dir
+            // Dev mode: fall back to project-relative jcef-bundle/
+            val resourcesDir = System.getProperty("compose.application.resources.dir")
+            val jcefDir = if (resourcesDir != null) {
+                File(resourcesDir, "jcef-bundle")
+            } else {
+                File("jcef-bundle")
+            }
+            logger.info { "JCEF install dir: ${jcefDir.absolutePath} (exists=${jcefDir.exists()})" }
+            builder.setInstallDir(jcefDir)
 
             builder.cefSettings.apply {
                 windowless_rendering_enabled = false
                 log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING
-                if (debugPort > 0) {
-                    remote_debugging_port = debugPort
-                }
+                remote_debugging_port = if (debugPort > 0) debugPort else 0
             }
 
             builder.setAppHandler(object : MavenCefAppHandlerAdapter() {})

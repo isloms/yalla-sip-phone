@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +32,10 @@ class ToolbarComponent(
 
     private val _phoneInput = MutableStateFlow("")
     val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
+
+    // Incremented to trigger focus request from UI
+    private val _phoneInputFocusRequest = MutableStateFlow(0)
+    val phoneInputFocusRequest: StateFlow<Int> = _phoneInputFocusRequest.asStateFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -90,8 +95,17 @@ class ToolbarComponent(
         scope.launch { callEngine.toggleHold() }
     }
 
+    fun requestPhoneInputFocus() {
+        _phoneInputFocusRequest.value++
+    }
+
     fun disconnect() {
         scope.launch { registrationEngine.unregister() }
+    }
+
+    fun destroy() {
+        stopRingtone()
+        scope.cancel()
     }
 
     private fun playRingtone() {
@@ -117,15 +131,18 @@ class ToolbarComponent(
     }
 
     private fun showIncomingNotification() {
-        try {
-            if (System.getProperty("os.name").lowercase().contains("mac")) {
-                ProcessBuilder(
-                    "osascript", "-e",
-                    "display notification \"Incoming Call\" with title \"Yalla SIP Phone\" sound name \"default\""
-                ).start()
+        scope.launch(Dispatchers.IO) {
+            try {
+                if (System.getProperty("os.name").lowercase().contains("mac")) {
+                    val process = ProcessBuilder(
+                        "osascript", "-e",
+                        "display notification \"Incoming Call\" with title \"Yalla SIP Phone\" sound name \"default\""
+                    ).start()
+                    process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
+                }
+            } catch (e: Exception) {
+                logger.warn(e) { "Failed to show notification" }
             }
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to show notification" }
         }
     }
 }

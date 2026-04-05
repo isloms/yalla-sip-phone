@@ -1,9 +1,15 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import org.pjsip.pjsua2.CallOpParam
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipConstants
@@ -17,20 +23,98 @@ interface AudioMediaProvider {
     fun getCaptureDevMedia(): org.pjsip.pjsua2.AudioMedia
 }
 
+/**
+ * Manages the pjsua2 call lifecycle: outbound dialling, inbound acceptance, audio wiring,
+ * mute/hold state, DTMF, and blind transfer.
+ *
+ * All public methods must be called on [pjDispatcher] (the pjsip event-loop thread).
+ * State is exposed via [callState] and can be collected from any thread.
+ *
+ * SWIG lifecycle: call [destroy] before [PjsipEndpointManager.destroy]. The manager hangs up
+ * any active call and deletes the underlying [PjsipCall] SWIG object during [destroy].
+ */
 class PjsipCallManager(
     private val accountProvider: AccountProvider,
     private val audioMediaProvider: AudioMediaProvider,
     private val isDestroyed: () -> Boolean,
+    private val pjDispatcher: kotlin.coroutines.CoroutineContext,
 ) : IncomingCallListener {
 
     private val _callState = MutableStateFlow<CallState>(CallState.Idle)
     val callState: StateFlow<CallState> = _callState.asStateFlow()
 
+    private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
     private var currentCall: PjsipCall? = null
     private var currentCallId: String? = null
     private var holdInProgress = false
+    private var holdTimeoutJob: Job? = null
+    private var hangupTimeoutJob: Job? = null
 
     fun isCallManagerDestroyed(): Boolean = isDestroyed()
+
+    private inline fun <R> withCallOpParam(
+        statusCode: Int = 200,
+        block: (CallOpParam) -> R,
+    ): R {
+        val prm = CallOpParam()
+        prm.statusCode = statusCode
+        return try {
+            block(prm)
+        } finally {
+            prm.delete()
+        }
+    }
+
+    /**
+     * Applies mute/unmute by controlling capture media transmission to the call's audio media.
+     * CRITICAL: Do NOT call delete() on captureDevMedia — it is owned by the audio device manager.
+     */
+    private fun applyMuteState(call: PjsipCall, muted: Boolean) {
+        val callInfo = call.getInfo()
+        val mediaCount = callInfo.media.size
+        try {
+            for (i in 0 until mediaCount) {
+                val mediaInfo = callInfo.media[i]
+                if (mediaInfo.type == org.pjsip.pjsua2.pjmedia_type.PJMEDIA_TYPE_AUDIO &&
+                    mediaInfo.status == org.pjsip.pjsua2.pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
+                ) {
+                    val audioMedia = call.getAudioMedia(i)
+                    val captureMedia = audioMediaProvider.getCaptureDevMedia()
+                    if (muted) {
+                        captureMedia.stopTransmit(audioMedia)
+                    } else {
+                        captureMedia.startTransmit(audioMedia)
+                    }
+                    break
+                }
+            }
+        } finally {
+            callInfo.delete()
+        }
+    }
+
+    /**
+     * Applies hold/resume via setHold/reinvite, updates state, and launches a safety timeout.
+     */
+    private fun applyHoldState(call: PjsipCall, hold: Boolean, state: CallState.Active) {
+        withCallOpParam { prm ->
+            if (hold) {
+                call.setHold(prm)
+            } else {
+                prm.opt.flag = 0
+                call.reinvite(prm)
+            }
+        }
+        _callState.value = state.copy(isOnHold = hold)
+        holdTimeoutJob?.cancel()
+        holdTimeoutJob = scope.launch {
+            delay(5_000)
+            if (holdInProgress) {
+                logger.warn { "Hold timeout — resetting holdInProgress flag" }
+                holdInProgress = false
+            }
+        }
+    }
 
     suspend fun makeCall(number: String): Result<Unit> {
         if (currentCall != null) return Result.failure(IllegalStateException("Call already active"))
@@ -68,13 +152,7 @@ class PjsipCallManager(
         val ringing = _callState.value as? CallState.Ringing ?: return
         if (ringing.isOutbound) return
         try {
-            val prm = CallOpParam()
-            try {
-                prm.statusCode = SipConstants.STATUS_OK
-                call.answer(prm)
-            } finally {
-                prm.delete()
-            }
+            withCallOpParam(statusCode = SipConstants.STATUS_OK) { prm -> call.answer(prm) }
         } catch (e: Exception) {
             logger.error(e) { "answerCall failed" }
         }
@@ -84,11 +162,20 @@ class PjsipCallManager(
         val call = currentCall ?: return
         try {
             _callState.value = CallState.Ending
-            val prm = CallOpParam()
-            try {
-                call.hangup(prm)
-            } finally {
-                prm.delete()
+            withCallOpParam { prm -> call.hangup(prm) }
+            // Safety net: force Idle after 10s if onCallDisconnected never fires
+            hangupTimeoutJob?.cancel()
+            hangupTimeoutJob = scope.launch {
+                delay(10_000)
+                if (_callState.value is CallState.Ending) {
+                    logger.warn { "Hangup timeout — forcing Idle state" }
+                    try {
+                        currentCall?.safeDelete()
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Error deleting call on hangup timeout" }
+                    }
+                    resetCallState()
+                }
             }
         } catch (e: Exception) {
             logger.error(e) { "hangupCall failed" }
@@ -96,48 +183,18 @@ class PjsipCallManager(
         }
     }
 
-    /**
-     * Mute fix: uses stopTransmit/startTransmit on capture media instead of adjustRxLevel.
-     * The adjustRxLevel approach was unreliable. startTransmit/stopTransmit directly controls
-     * whether our microphone audio reaches the remote call media.
-     *
-     * CRITICAL: Do NOT call delete() on captureDevMedia — it is owned by the audio device manager.
-     */
     suspend fun toggleMute() {
         val state = _callState.value
         if (state !is CallState.Active) return
         val call = currentCall ?: return
         try {
-            val callInfo = call.getInfo()
-            val mediaCount = callInfo.media.size
-            try {
-                for (i in 0 until mediaCount) {
-                    val mediaInfo = callInfo.media[i]
-                    if (mediaInfo.type == org.pjsip.pjsua2.pjmedia_type.PJMEDIA_TYPE_AUDIO &&
-                        mediaInfo.status == org.pjsip.pjsua2.pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
-                    ) {
-                        val audioMedia = call.getAudioMedia(i)
-                        val captureMedia = audioMediaProvider.getCaptureDevMedia()
-                        if (state.isMuted) {
-                            captureMedia.startTransmit(audioMedia)
-                        } else {
-                            captureMedia.stopTransmit(audioMedia)
-                        }
-                        break
-                    }
-                }
-            } finally {
-                callInfo.delete()
-            }
+            applyMuteState(call, muted = !state.isMuted)
             _callState.value = state.copy(isMuted = !state.isMuted)
         } catch (e: Exception) {
             logger.error(e) { "toggleMute failed" }
         }
     }
 
-    /**
-     * Hold fix: holdInProgress guard prevents PJ_EINVALIDOP when a re-INVITE is still in-flight.
-     */
     suspend fun toggleHold() {
         val state = _callState.value
         if (state !is CallState.Active) return
@@ -148,18 +205,7 @@ class PjsipCallManager(
         val call = currentCall ?: return
         holdInProgress = true
         try {
-            val prm = CallOpParam()
-            try {
-                if (state.isOnHold) {
-                    prm.opt.flag = 0
-                    call.reinvite(prm)
-                } else {
-                    call.setHold(prm)
-                }
-            } finally {
-                prm.delete()
-            }
-            _callState.value = state.copy(isOnHold = !state.isOnHold)
+            applyHoldState(call, hold = !state.isOnHold, state = state)
         } catch (e: Exception) {
             holdInProgress = false
             logger.error(e) { "toggleHold failed" }
@@ -176,27 +222,7 @@ class PjsipCallManager(
         if (state.isMuted == muted) return
         val call = currentCall ?: return
         try {
-            val callInfo = call.getInfo()
-            val mediaCount = callInfo.media.size
-            try {
-                for (i in 0 until mediaCount) {
-                    val mediaInfo = callInfo.media[i]
-                    if (mediaInfo.type == org.pjsip.pjsua2.pjmedia_type.PJMEDIA_TYPE_AUDIO &&
-                        mediaInfo.status == org.pjsip.pjsua2.pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
-                    ) {
-                        val audioMedia = call.getAudioMedia(i)
-                        val captureMedia = audioMediaProvider.getCaptureDevMedia()
-                        if (muted) {
-                            captureMedia.stopTransmit(audioMedia)
-                        } else {
-                            captureMedia.startTransmit(audioMedia)
-                        }
-                        break
-                    }
-                }
-            } finally {
-                callInfo.delete()
-            }
+            applyMuteState(call, muted)
             _callState.value = state.copy(isMuted = muted)
         } catch (e: Exception) {
             logger.error(e) { "setMute failed" }
@@ -218,18 +244,7 @@ class PjsipCallManager(
         val call = currentCall ?: return
         holdInProgress = true
         try {
-            val prm = CallOpParam()
-            try {
-                if (onHold) {
-                    call.setHold(prm)
-                } else {
-                    prm.opt.flag = 0
-                    call.reinvite(prm)
-                }
-            } finally {
-                prm.delete()
-            }
-            _callState.value = state.copy(isOnHold = onHold)
+            applyHoldState(call, hold = onHold, state = state)
         } catch (e: Exception) {
             holdInProgress = false
             logger.error(e) { "setHold failed" }
@@ -238,6 +253,10 @@ class PjsipCallManager(
 
     fun onCallConfirmed(call: PjsipCall) {
         val state = _callState.value
+        if (state is CallState.Ending) {
+            logger.warn { "onCallConfirmed ignored — call already in Ending state" }
+            return
+        }
         if (state is CallState.Ringing) {
             _callState.value = CallState.Active(
                 callId = state.callId,
@@ -251,9 +270,11 @@ class PjsipCallManager(
     }
 
     fun onCallDisconnected(call: PjsipCall) {
+        hangupTimeoutJob?.cancel()
+        hangupTimeoutJob = null
         resetCallState()
         try {
-            call.delete()
+            call.safeDelete()
         } catch (e: Exception) {
             logger.warn(e) { "Error deleting call object" }
         }
@@ -265,14 +286,8 @@ class PjsipCallManager(
             logger.warn { "Rejecting incoming call (already in call)" }
             try {
                 val call = PjsipCall(this, acc, callId)
-                val prm = CallOpParam()
-                try {
-                    prm.statusCode = SipConstants.STATUS_BUSY_HERE
-                    call.hangup(prm)
-                } finally {
-                    prm.delete()
-                }
-                call.delete()
+                withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> call.hangup(prm) }
+                call.safeDelete()
             } catch (e: Exception) {
                 logger.error(e) { "Failed to reject incoming call" }
             }
@@ -301,9 +316,38 @@ class PjsipCallManager(
         }
     }
 
+    suspend fun sendDtmf(callId: String, digits: String): Result<Unit> {
+        val call = currentCall ?: return Result.failure(IllegalStateException("No active call"))
+        return try {
+            call.dialDtmf(digits)
+            logger.info { "DTMF sent: $digits" }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logger.error(e) { "DTMF failed" }
+            Result.failure(e)
+        }
+    }
+
+    suspend fun transferCall(callId: String, destination: String): Result<Unit> {
+        val call = currentCall ?: return Result.failure(IllegalStateException("No active call"))
+        return try {
+            val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
+            if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
+            val destUri = SipConstants.buildCallUri(destination, host)
+            withCallOpParam { prm -> call.xfer(destUri, prm) }
+            logger.info { "Call transferred to: $destination" }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logger.error(e) { "Transfer failed" }
+            Result.failure(e)
+        }
+    }
+
     fun connectCallAudio(call: PjsipCall) {
         // Reset holdInProgress here — media state callback means re-INVITE completed
         holdInProgress = false
+        holdTimeoutJob?.cancel()
+        holdTimeoutJob = null
 
         var info: org.pjsip.pjsua2.CallInfo? = null
         try {
@@ -345,16 +389,12 @@ class PjsipCallManager(
     }
 
     fun destroy() {
+        scope.cancel()
         currentCall?.let { call ->
             try {
-                val prm = CallOpParam()
-                try {
-                    call.hangup(prm)
-                } finally {
-                    prm.delete()
-                }
+                withCallOpParam { prm -> call.hangup(prm) }
             } catch (_: Exception) {}
-            try { call.delete() } catch (_: Exception) {}
+            try { call.safeDelete() } catch (_: Exception) {}
         }
         currentCall = null
         currentCallId = null

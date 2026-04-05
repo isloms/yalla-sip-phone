@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.concurrent.atomic.AtomicBoolean
 import org.pjsip.pjsua2.Account
 import org.pjsip.pjsua2.Call
 import org.pjsip.pjsua2.CallInfo
@@ -13,6 +14,7 @@ private val logger = KotlinLogging.logger {}
 class PjsipCall : Call {
 
     private val callManager: PjsipCallManager
+    private val deleted = AtomicBoolean(false)
 
     constructor(callManager: PjsipCallManager, account: Account) : super(account) {
         this.callManager = callManager
@@ -46,6 +48,20 @@ class PjsipCall : Call {
             callManager.connectCallAudio(this)
         } catch (e: Exception) {
             logger.error(e) { "Error in onCallMediaState callback" }
+        }
+    }
+
+    /**
+     * Safe delete that prevents double-delete SIGSEGV.
+     * SWIG pointers crash if delete() is called twice on the same native object.
+     * AtomicBoolean.compareAndSet ensures only one thread can win the race.
+     */
+    fun safeDelete() {
+        if (!deleted.compareAndSet(false, true)) return
+        try {
+            delete()
+        } catch (e: Exception) {
+            logger.warn(e) { "Error during call delete" }
         }
     }
 }

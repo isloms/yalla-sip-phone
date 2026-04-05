@@ -50,6 +50,8 @@ dependencies {
     // Test
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
+    testImplementation(compose.desktop.uiTestJUnit4)
+    testImplementation("app.cash.turbine:turbine:1.2.1")
 }
 
 // Hot reload JVM args (hotRun doesn't inherit compose.desktop.application.jvmArgs)
@@ -60,6 +62,18 @@ tasks.matching { it.name.startsWith("hotRun") || it.name.startsWith("hotDev") }.
         jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
         jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
     }
+}
+
+tasks.register<JavaExec>("runDemo") {
+    group = "demo"
+    description = "Run visual demo with fake SIP engines simulating a busy operator day"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("uz.yalla.sipphone.demo.DemoMainKt")
+    jvmArgs(
+        "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
+        "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
+    )
 }
 
 compose.desktop {

@@ -11,6 +11,7 @@ data class AppTokens(
     // Spacing
     val spacingXs: Dp = 4.dp,
     val spacingSm: Dp = 8.dp,
+    val spacingMdSm: Dp = 12.dp,
     val spacingMd: Dp = 16.dp,
     val spacingLg: Dp = 24.dp,
     val spacingXl: Dp = 32.dp,
@@ -38,6 +39,7 @@ data class AppTokens(
 
     // Icons
     val iconSmall: Dp = 16.dp,
+    val iconDefault: Dp = 20.dp,
     val iconMedium: Dp = 24.dp,
 
     // Indicators
@@ -45,6 +47,9 @@ data class AppTokens(
     val indicatorDotSmall: Dp = 7.dp,
     val dividerThickness: Dp = 1.dp,
     val dividerHeight: Dp = 32.dp,
+
+    // Dropdown
+    val dropdownItemMinHeight: Dp = 36.dp,
 
     // Progress
     val progressSmall: Dp = 18.dp,
@@ -54,8 +59,14 @@ data class AppTokens(
     val alphaDisabled: Float = 0.6f,
     val alphaHint: Float = 0.7f,
 
+    // Button sizes
+    val iconButtonSize: Dp = 40.dp,
+    val iconButtonSizeLarge: Dp = 48.dp,
+
     // Toolbar
-    val toolbarHeight: Dp = 44.dp,
+    val toolbarHeight: Dp = 52.dp,
+    val toolbarPaddingH: Dp = 12.dp,
+    val toolbarZoneGap: Dp = 8.dp,
 
     // Call quality
     val qualityDotSize: Dp = 8.dp,

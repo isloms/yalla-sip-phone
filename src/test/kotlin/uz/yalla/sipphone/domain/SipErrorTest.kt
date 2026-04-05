@@ -22,9 +22,9 @@ class SipErrorTest {
     }
 
     @Test
-    fun `408 maps to NetworkError`() {
+    fun `408 maps to RequestTimeout`() {
         val error = SipError.fromSipStatus(408, "Request Timeout")
-        assertIs<SipError.NetworkError>(error)
+        assertIs<SipError.RequestTimeout>(error)
     }
 
     @Test

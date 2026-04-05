@@ -50,17 +50,6 @@ object Strings {
     const val LOGIN_PASSWORD_LABEL = "Password"
     const val LOGIN_BUTTON = "Login"
     const val LOGIN_MANUAL_CONNECTION = "Manual connection"
-    const val LOGIN_ERROR_INVALID = "Invalid password"
-    const val LOGIN_ERROR_NETWORK = "Network error. Please try again."
-    const val LOGIN_ERROR_CONNECTION_LOST = "Connection lost. Please re-login."
-
-    // Agent Status
-    const val AGENT_READY = "Ready"
-    const val AGENT_AWAY = "Away"
-    const val AGENT_BREAK = "Break"
-    const val AGENT_WRAP_UP = "Wrap-Up"
-    const val AGENT_OFFLINE = "Offline"
-    const val AGENT_RECONNECTING = "Reconnecting..."
 
     // Toolbar
     const val STATUS_RINGING = "Ringing..."
@@ -72,16 +61,8 @@ object Strings {
     // Settings
     const val SETTINGS_TITLE = "Settings"
     const val SETTINGS_THEME = "Theme"
-    const val SETTINGS_THEME_LIGHT = "Light"
-    const val SETTINGS_THEME_DARK = "Dark"
     const val SETTINGS_LOGOUT = "Logout"
     const val SETTINGS_LOGOUT_CONFIRM = "Logout and close Yalla SIP Phone?"
     const val SETTINGS_LOGOUT_CONFIRM_TITLE = "Confirm Logout"
 
-    // Desktop
-    const val NOTIFICATION_INCOMING = "Incoming Call"
-
-    // Webview placeholder
-    const val PLACEHOLDER_DISPATCHER = "Dispatcher panel will load here"
-    const val PLACEHOLDER_URL = "URL: %s"
 }

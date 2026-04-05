@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.feature.main.webview
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
@@ -14,6 +15,15 @@ fun WebviewPanel(
 ) {
     val browser = remember(dispatcherUrl) {
         jcefManager.createBrowser(dispatcherUrl)
+    }
+
+    DisposableEffect(dispatcherUrl) {
+        onDispose {
+            if (!jcefManager.isClosed()) {
+                browser.stopLoad()
+                browser.close(false)
+            }
+        }
     }
 
     SwingPanel(

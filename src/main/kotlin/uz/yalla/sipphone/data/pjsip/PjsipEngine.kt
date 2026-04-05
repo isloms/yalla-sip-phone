@@ -19,6 +19,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * Production implementation of [SipStackLifecycle], [RegistrationEngine], and [CallEngine]
+ * backed by the pjsua2 SWIG bindings.
+ *
+ * All operations are marshalled onto a dedicated single-thread coroutine context (`pjsip-event-loop`)
+ * that serves as pjsip's event loop. Never call pjsip SWIG objects from any other thread.
+ *
+ * SWIG lifecycle: always call [shutdown] before the process exits to avoid native memory leaks.
+ * [shutdown] is idempotent — subsequent calls are no-ops.
+ */
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class PjsipEngine : SipStackLifecycle, RegistrationEngine, CallEngine {
 
@@ -35,6 +45,7 @@ class PjsipEngine : SipStackLifecycle, RegistrationEngine, CallEngine {
             override fun getCaptureDevMedia() = endpointManager.getCaptureDevMedia()
         },
         isDestroyed = ::isDestroyed,
+        pjDispatcher = pjDispatcher,
     )
 
     init {
@@ -102,4 +113,10 @@ class PjsipEngine : SipStackLifecycle, RegistrationEngine, CallEngine {
 
     override suspend fun setHold(callId: String, onHold: Boolean): Unit =
         withContext(pjDispatcher) { callManager.setHold(callId, onHold) }
+
+    override suspend fun sendDtmf(callId: String, digits: String): Result<Unit> =
+        withContext(pjDispatcher) { callManager.sendDtmf(callId, digits) }
+
+    override suspend fun transferCall(callId: String, destination: String): Result<Unit> =
+        withContext(pjDispatcher) { callManager.transferCall(callId, destination) }
 }
