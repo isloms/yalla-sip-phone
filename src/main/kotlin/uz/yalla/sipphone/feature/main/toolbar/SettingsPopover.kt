@@ -77,6 +77,7 @@ fun SettingsPopover(
                 title = Strings.SETTINGS_TITLE,
                 state = rememberDialogState(size = DpSize(320.dp, 220.dp)),
                 resizable = false,
+                alwaysOnTop = true,
             ) {
                 YallaSipPhoneTheme(isDark = isDarkTheme) {
                     val dlgColors = LocalYallaColors.current
