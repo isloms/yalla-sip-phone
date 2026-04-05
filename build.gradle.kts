@@ -54,8 +54,8 @@ dependencies {
     testImplementation("app.cash.turbine:turbine:1.2.1")
 }
 
-// Hot reload JVM args (hotRun doesn't inherit compose.desktop.application.jvmArgs)
-tasks.matching { it.name.startsWith("hotRun") || it.name.startsWith("hotDev") }.configureEach {
+// Dev mode JVM args — pjsip path + macOS add-opens (NOT for packaged app)
+tasks.matching { it.name == "run" || it.name.startsWith("hotRun") || it.name.startsWith("hotDev") }.configureEach {
     if (this is JavaExec) {
         jvmArgs("-Dpjsip.library.path=${projectDir}/libs")
         jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
@@ -79,9 +79,6 @@ tasks.register<JavaExec>("runDemo") {
 compose.desktop {
     application {
         mainClass = "uz.yalla.sipphone.MainKt"
-
-        // pjsip native lib path — for dev mode (gradlew run)
-        jvmArgs += "-Dpjsip.library.path=${projectDir}/libs"
 
         nativeDistributions {
             includeAllModules = true
