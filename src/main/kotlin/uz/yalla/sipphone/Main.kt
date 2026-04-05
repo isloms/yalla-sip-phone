@@ -131,7 +131,9 @@ fun main() {
                 javax.swing.SwingUtilities.invokeLater {
                     if (isMainScreen) {
                         window.minimumSize = java.awt.Dimension(1280, 720)
-                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.MAXIMIZED_BOTH
+                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.NORMAL
+                        window.setSize(1280, 720)
+                        window.setLocationRelativeTo(null)
                     } else {
                         // 1. Un-maximize (NORMAL state)
                         (window as? java.awt.Frame)?.extendedState = java.awt.Frame.NORMAL
