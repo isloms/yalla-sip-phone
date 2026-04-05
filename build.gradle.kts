@@ -80,14 +80,13 @@ compose.desktop {
     application {
         mainClass = "uz.yalla.sipphone.MainKt"
 
-        jvmArgs += "-Dpjsip.library.path=${projectDir}/libs"
+        jvmArgs += "--add-opens=java.desktop/sun.awt=ALL-UNNAMED"
 
-        // Required for jcefmaven on macOS with JDK 16+
-        jvmArgs += listOf(
-            "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
-            "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
-            "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
-        )
+        // macOS-only: lwawt modules don't exist on Windows/Linux
+        if (System.getProperty("os.name").lowercase().contains("mac")) {
+            jvmArgs += "--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED"
+            jvmArgs += "--add-opens=java.desktop/sun.lwawt.macosx=ALL-UNNAMED"
+        }
 
         nativeDistributions {
             modules("java.naming")
