@@ -27,8 +27,8 @@ private val logger = KotlinLogging.logger {}
 class MainComponent(
     componentContext: ComponentContext,
     val authResult: AuthResult,
-    callEngine: CallEngine,
-    registrationEngine: RegistrationEngine,
+    private val callEngine: CallEngine,
+    private val registrationEngine: RegistrationEngine,
     val jcefManager: JcefManager,
     private val eventEmitter: BridgeEventEmitter,
     private val onLogout: () -> Unit,
@@ -69,6 +69,114 @@ class MainComponent(
             )
         }
 
+        // --- Call state observation → bridge events ---
+        var previousCallState: CallState = CallState.Idle
+        var callStartTimestamp: Long = 0L
+
+        scope.launch {
+            callEngine.callState.collect { newState ->
+                val prev = previousCallState
+                previousCallState = newState
+
+                when {
+                    // Idle → Ringing (inbound)
+                    prev is CallState.Idle && newState is CallState.Ringing && !newState.isOutbound -> {
+                        callStartTimestamp = System.currentTimeMillis()
+                        eventEmitter.emitIncomingCall(newState.callId, newState.callerNumber)
+                    }
+                    // Idle → Ringing (outbound)
+                    prev is CallState.Idle && newState is CallState.Ringing && newState.isOutbound -> {
+                        callStartTimestamp = System.currentTimeMillis()
+                        eventEmitter.emitOutgoingCall(newState.callId, newState.callerNumber)
+                    }
+                    // Ringing → Active (call connected)
+                    prev is CallState.Ringing && newState is CallState.Active -> {
+                        callStartTimestamp = System.currentTimeMillis()
+                        val direction = if (newState.isOutbound) "outbound" else "inbound"
+                        eventEmitter.emitCallConnected(newState.callId, newState.remoteNumber, direction)
+                    }
+                    // Active → Active (mute/hold changed)
+                    prev is CallState.Active && newState is CallState.Active -> {
+                        if (prev.isMuted != newState.isMuted) {
+                            eventEmitter.emitCallMuteChanged(newState.callId, newState.isMuted)
+                        }
+                        if (prev.isOnHold != newState.isOnHold) {
+                            eventEmitter.emitCallHoldChanged(newState.callId, newState.isOnHold)
+                        }
+                    }
+                    // Any → Idle (call ended)
+                    newState is CallState.Idle &&
+                        (prev is CallState.Ringing || prev is CallState.Active || prev is CallState.Ending) -> {
+                        val duration = ((System.currentTimeMillis() - callStartTimestamp) / 1000).toInt()
+                        val callId: String
+                        val number: String
+                        val direction: String
+                        val reason: String
+
+                        when (prev) {
+                            is CallState.Ringing -> {
+                                callId = prev.callId
+                                number = prev.callerNumber
+                                direction = if (prev.isOutbound) "outbound" else "inbound"
+                                reason = if (prev.isOutbound) "hangup" else "missed"
+                            }
+                            is CallState.Active -> {
+                                callId = prev.callId
+                                number = prev.remoteNumber
+                                direction = if (prev.isOutbound) "outbound" else "inbound"
+                                reason = "hangup"
+                            }
+                            else -> return@collect // Ending state doesn't carry call info
+                        }
+
+                        eventEmitter.emitCallEnded(callId, number, direction, duration, reason)
+                        callStartTimestamp = 0L
+                    }
+                }
+            }
+        }
+
+        // --- Registration state observation → bridge events ---
+        var previousRegState: RegistrationState = registrationEngine.registrationState.value
+
+        scope.launch {
+            registrationEngine.registrationState.collect { newState ->
+                val prev = previousRegState
+                previousRegState = newState
+
+                val state = when (newState) {
+                    is RegistrationState.Registered -> "connected"
+                    is RegistrationState.Registering -> "reconnecting"
+                    else -> "disconnected"
+                }
+                val prevState = when (prev) {
+                    is RegistrationState.Registered -> "connected"
+                    is RegistrationState.Registering -> "reconnecting"
+                    else -> "disconnected"
+                }
+
+                if (state != prevState) {
+                    eventEmitter.emitConnectionChanged(state, 0)
+                }
+            }
+        }
+
+        // --- Agent status observation → bridge events ---
+        var previousAgentStatus = toolbar.agentStatus.value
+
+        scope.launch {
+            toolbar.agentStatus.collect { newStatus ->
+                val prev = previousAgentStatus
+                previousAgentStatus = newStatus
+                if (prev != newStatus) {
+                    eventEmitter.emitAgentStatusChanged(
+                        status = newStatus.name.lowercase(),
+                        previousStatus = prev.name.lowercase(),
+                    )
+                }
+            }
+        }
+
         // Auto-logout on disconnect when no active call
         scope.launch(Dispatchers.Main) {
             combine(
@@ -83,6 +191,10 @@ class MainComponent(
                 .first { it }
             onLogout()
         }
+    }
+
+    fun onThemeChanged(isDark: Boolean) {
+        eventEmitter.emitThemeChanged(if (isDark) "dark" else "light")
     }
 
     fun logout() {

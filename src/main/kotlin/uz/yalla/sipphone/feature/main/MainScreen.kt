@@ -22,7 +22,10 @@ fun MainScreen(
         ToolbarContent(
             component = component.toolbar,
             isDarkTheme = isDarkTheme,
-            onThemeToggle = onThemeToggle,
+            onThemeToggle = {
+                onThemeToggle()
+                component.onThemeChanged(!isDarkTheme)
+            },
             onLogout = component::logout,
         )
         Spacer(Modifier.height(LocalAppTokens.current.spacingSm))
