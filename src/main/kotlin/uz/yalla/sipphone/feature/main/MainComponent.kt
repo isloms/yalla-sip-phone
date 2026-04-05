@@ -2,6 +2,7 @@ package uz.yalla.sipphone.feature.main
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import com.arkivanov.essenty.lifecycle.doOnDestroy
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
@@ -31,6 +32,8 @@ class MainComponent(
     private val registrationEngine: RegistrationEngine,
     val jcefManager: JcefManager,
     private val eventEmitter: BridgeEventEmitter,
+    private val bridgeSecurity: BridgeSecurity,
+    private val bridgeAuditLog: BridgeAuditLog,
     private val onLogout: () -> Unit,
 ) : ComponentContext by componentContext {
 
@@ -45,17 +48,18 @@ class MainComponent(
     private val scope = coroutineScope()
 
     init {
+        lifecycle.doOnDestroy { toolbar.dispose() }
+
         // Set up JS Bridge (only if JCEF is initialized — skipped in tests)
         if (jcefManager.isInitialized) {
             eventEmitter.agentInfo = authResult.agent
 
-            val security = BridgeSecurity()
-            val auditLog = BridgeAuditLog()
             val bridgeRouter = BridgeRouter(
                 callEngine = callEngine,
                 registrationEngine = registrationEngine,
-                security = security,
-                auditLog = auditLog,
+                security = bridgeSecurity,
+                auditLog = bridgeAuditLog,
+                agentStatusProvider = { toolbar.agentStatus.value.name.lowercase() },
                 onAgentStatusChange = { status: AgentStatus ->
                     logger.info { "Agent status change requested from bridge: $status" }
                 },
