@@ -26,6 +26,7 @@ class JcefManager {
     private var cefApp: CefApp? = null
     private var cefClient: CefClient? = null
     private var browser: CefBrowser? = null
+    private var messageLoopTimer: javax.swing.Timer? = null
 
     @Volatile
     private var isBrowserClosed = false
@@ -64,6 +65,18 @@ class JcefManager {
             logger.info { "Building CefApp via jcefmaven (first run downloads ~100MB Chromium)..." }
             cefApp = builder.build()
             cefClient = cefApp!!.createClient()
+
+            // Compose Desktop's Skiko renderer monopolizes EDT, preventing CEF's internal
+            // message loop timer from firing. Manually pump CEF events every 10ms.
+            messageLoopTimer = javax.swing.Timer(10) {
+                try {
+                    val method = CefApp::class.java.getDeclaredMethod("N_DoMessageLoopWork")
+                    method.isAccessible = true
+                    method.invoke(cefApp)
+                } catch (_: Exception) {}
+            }
+            messageLoopTimer?.start()
+            logger.info { "CEF message loop pump started" }
 
             // Block all popup windows — dispatcher UI must stay in our single browser
             cefClient!!.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
@@ -160,6 +173,9 @@ class JcefManager {
 
         val shutdownWork = Runnable {
             try {
+                messageLoopTimer?.stop()
+                messageLoopTimer = null
+
                 browser?.let { b ->
                     b.stopLoad()
                     b.close(true)
