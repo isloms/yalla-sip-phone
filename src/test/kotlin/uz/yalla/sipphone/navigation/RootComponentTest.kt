@@ -8,6 +8,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import uz.yalla.sipphone.data.jcef.BridgeAuditLog
+import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
+import uz.yalla.sipphone.data.jcef.JcefManager
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthRepository
@@ -98,6 +101,8 @@ class RootComponentTest {
                 authResult = authResult,
                 callEngine = fakeCallEngine,
                 registrationEngine = fakeRegistrationEngine,
+                jcefManager = JcefManager(),
+                eventEmitter = BridgeEventEmitter(auditLog = BridgeAuditLog()),
                 onLogout = onLogout,
             )
         }

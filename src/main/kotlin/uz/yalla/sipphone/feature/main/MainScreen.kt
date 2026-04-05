@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import uz.yalla.sipphone.feature.main.placeholder.WebviewPlaceholder
+import uz.yalla.sipphone.feature.main.webview.WebviewPanel
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarContent
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -26,7 +26,8 @@ fun MainScreen(
             onLogout = component::logout,
         )
         Spacer(Modifier.height(LocalAppTokens.current.spacingSm))
-        WebviewPlaceholder(
+        WebviewPanel(
+            jcefManager = component.jcefManager,
             dispatcherUrl = component.dispatcherUrl,
             modifier = Modifier.weight(1f).fillMaxSize(),
         )

@@ -4,6 +4,8 @@ import com.arkivanov.decompose.ComponentContext
 import org.koin.core.Koin
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.AuthRepository
+import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
+import uz.yalla.sipphone.data.jcef.JcefManager
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.RegistrationEngine
@@ -53,6 +55,8 @@ class ComponentFactoryImpl(private val koin: Koin) : ComponentFactory {
         authResult = authResult,
         callEngine = koin.get<CallEngine>(),
         registrationEngine = koin.get<RegistrationEngine>(),
+        jcefManager = koin.get<JcefManager>(),
+        eventEmitter = koin.get<BridgeEventEmitter>(),
         onLogout = onLogout,
     )
 }

@@ -24,6 +24,7 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
+import uz.yalla.sipphone.data.jcef.JcefManager
 import uz.yalla.sipphone.di.appModules
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipConstants
@@ -56,10 +57,14 @@ fun main() {
         return
     }
 
+    val jcefManager: JcefManager = koin.get()
+    jcefManager.initialize(debugPort = 9222)
+
     Runtime.getRuntime().addShutdownHook(Thread {
         runBlocking {
             withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
         }
+        jcefManager.shutdown()
     })
 
     val decomposeLifecycle = LifecycleRegistry()
@@ -109,6 +114,7 @@ fun main() {
                         runBlocking {
                             withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
                         }
+                        jcefManager.shutdown()
                         exitApplication()
                     }
                 } else {
