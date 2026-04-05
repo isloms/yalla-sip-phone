@@ -52,12 +52,14 @@ fun SettingsPopover(
     Box(modifier = modifier) {
         IconButton(
             onClick = { expanded = true },
-            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            modifier = Modifier
+                .size(32.dp)
+                .pointerHoverIcon(PointerIcon.Hand),
         ) {
             Icon(
                 imageVector = Icons.Filled.Settings,
                 contentDescription = Strings.SETTINGS_TITLE,
-                modifier = Modifier.size(tokens.iconMedium),
+                modifier = Modifier.size(20.dp),
                 tint = colors.textSubtle,
             )
         }

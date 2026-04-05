@@ -55,11 +55,10 @@ data class AppTokens(
     val alphaHint: Float = 0.7f,
 
     // Toolbar
-    val toolbarHeight: Dp = 56.dp,
-    val toolbarDividerHeight: Dp = 2.dp,
+    val toolbarHeight: Dp = 44.dp,
 
     // Call quality
-    val qualityDotSize: Dp = 12.dp,
+    val qualityDotSize: Dp = 8.dp,
 
     // Animation
     val animFast: Int = 200,

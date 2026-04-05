@@ -27,11 +27,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -62,7 +64,7 @@ fun AgentStatusDropdown(
                 .pointerHoverIcon(PointerIcon.Hand)
                 .clip(tokens.shapeSmall)
                 .clickable { expanded = true }
-                .padding(horizontal = tokens.spacingSm, vertical = tokens.spacingXs),
+                .padding(horizontal = tokens.spacingXs, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
         ) {
@@ -74,13 +76,14 @@ fun AgentStatusDropdown(
             )
             Text(
                 text = currentStatus.displayName,
-                style = MaterialTheme.typography.labelMedium,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
                 color = colors.textBase,
             )
             Icon(
                 imageVector = Icons.Filled.ArrowDropDown,
                 contentDescription = null,
-                modifier = Modifier.size(tokens.iconSmall),
+                modifier = Modifier.size(14.dp),
                 tint = colors.textSubtle,
             )
         }

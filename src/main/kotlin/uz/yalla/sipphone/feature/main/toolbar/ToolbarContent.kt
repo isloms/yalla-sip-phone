@@ -8,8 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,8 +21,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import uz.yalla.sipphone.domain.CallState
@@ -59,17 +69,33 @@ fun ToolbarContent(
         }
     }
 
+    // Ringing top border for incoming calls
+    val ringingBorderModifier = if (callState is CallState.Ringing && !(callState as CallState.Ringing).isOutbound) {
+        Modifier.drawBehind {
+            drawLine(
+                color = colors.callIncoming,
+                start = Offset.Zero,
+                end = Offset(size.width, 0f),
+                strokeWidth = 2.dp.toPx(),
+            )
+        }
+    } else {
+        Modifier
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(tokens.toolbarHeight)
-            .background(colors.backgroundSecondary),
+            .shadow(elevation = 2.dp, shape = RectangleShape)
+            .background(colors.backgroundSecondary)
+            .then(ringingBorderModifier),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(tokens.toolbarHeight)
-                .padding(horizontal = tokens.spacingMd),
+                .padding(horizontal = tokens.spacingSm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Zone A: Agent Status Dropdown
@@ -78,17 +104,17 @@ fun ToolbarContent(
                 onStatusSelected = component::setAgentStatus,
             )
 
-            Spacer(Modifier.width(tokens.spacingSm))
+            Spacer(Modifier.width(tokens.spacingXs))
 
             // Vertical divider between Zone A and Zone B
             Box(
                 Modifier
                     .width(tokens.dividerThickness)
                     .height(tokens.dividerHeight)
-                    .background(colors.backgroundTertiary),
+                    .background(colors.backgroundTertiary.copy(alpha = 0.2f)),
             )
 
-            Spacer(Modifier.width(tokens.spacingSm))
+            Spacer(Modifier.width(tokens.spacingXs))
 
             // Zone B: Phone input or call info (flexible width)
             Box(
@@ -103,9 +129,19 @@ fun ToolbarContent(
                 )
             }
 
-            Spacer(Modifier.width(tokens.spacingSm))
+            Spacer(Modifier.width(tokens.spacingXs))
 
-            // Zone C: Call action buttons (~200dp)
+            // Vertical divider between Zone B and Zone C
+            Box(
+                Modifier
+                    .width(tokens.dividerThickness)
+                    .height(tokens.dividerHeight)
+                    .background(colors.backgroundTertiary.copy(alpha = 0.2f)),
+            )
+
+            Spacer(Modifier.width(tokens.spacingXs))
+
+            // Zone C: Call action buttons
             CallControls(
                 callState = callState,
                 phoneInputEmpty = phoneInput.isBlank(),
@@ -117,9 +153,19 @@ fun ToolbarContent(
                 onToggleHold = component::toggleHold,
             )
 
-            Spacer(Modifier.width(tokens.spacingSm))
+            Spacer(Modifier.width(tokens.spacingXs))
 
-            // Zone D: Settings gear (40dp)
+            // Vertical divider between Zone C and Zone D
+            Box(
+                Modifier
+                    .width(tokens.dividerThickness)
+                    .height(tokens.dividerHeight)
+                    .background(colors.backgroundTertiary.copy(alpha = 0.2f)),
+            )
+
+            Spacer(Modifier.width(tokens.spacingXs))
+
+            // Zone D: Settings gear
             SettingsPopover(
                 isDarkTheme = isDarkTheme,
                 onThemeToggle = onThemeToggle,
@@ -128,18 +174,9 @@ fun ToolbarContent(
 
             Spacer(Modifier.width(tokens.spacingXs))
 
-            // Zone E: Call quality indicator (56dp)
+            // Zone E: Call quality indicator
             CallQualityIndicator(callState = callState)
         }
-
-        // Bottom border — visible separator between toolbar and webview
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(tokens.toolbarDividerHeight)
-                .background(colors.borderDisabled),
-        )
     }
 }
 
@@ -155,13 +192,34 @@ private fun ZoneBContent(
 
     when (callState) {
         is CallState.Idle -> {
-            OutlinedTextField(
+            BasicTextField(
                 value = phoneInput,
                 onValueChange = onPhoneInputChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(Strings.PLACEHOLDER_PHONE) },
+                textStyle = TextStyle(
+                    color = colors.textBase,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.SansSerif,
+                ),
                 singleLine = true,
-                shape = tokens.shapeSmall,
+                cursorBrush = SolidColor(colors.brandPrimary),
+                decorationBox = { innerTextField ->
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(colors.backgroundBase, shape = RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                    ) {
+                        if (phoneInput.isEmpty()) {
+                            Text(
+                                text = Strings.PLACEHOLDER_PHONE,
+                                color = colors.textSubtle.copy(alpha = 0.5f),
+                                fontSize = 14.sp,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
@@ -195,7 +253,10 @@ private fun ZoneBContent(
                 Spacer(Modifier.width(tokens.spacingSm))
                 Text(
                     text = formatDuration(callDuration),
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    style = TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp,
+                    ),
                     color = if (callState.isOnHold) {
                         colors.textSubtle
                     } else {
