@@ -151,21 +151,30 @@ class JcefManager {
      * All operations on EDT. After this, the manager can be re-initialized.
      */
     fun shutdown() {
+        if (cefApp == null) return
         logger.info { "Shutting down JCEF..." }
 
-        SwingUtilities.invokeAndWait {
-            browser?.let { b ->
-                b.stopLoad()
-                b.close(true)
-                isBrowserClosed = true
+        try {
+            SwingUtilities.invokeAndWait {
+                browser?.let { b ->
+                    b.stopLoad()
+                    b.close(true)
+                    isBrowserClosed = true
+                }
+                browser = null
+
+                try {
+                    cefClient?.dispose()
+                } catch (_: Exception) { /* CefApp may already be terminated */ }
+                cefClient = null
+
+                try {
+                    cefApp?.dispose()
+                } catch (_: Exception) { /* Already terminated */ }
+                cefApp = null
             }
-            browser = null
-
-            cefClient?.dispose()
-            cefClient = null
-
-            cefApp?.dispose()
-            cefApp = null
+        } catch (_: Exception) {
+            // EDT may be shut down during JVM exit
         }
 
         logger.info { "JCEF shutdown complete" }
