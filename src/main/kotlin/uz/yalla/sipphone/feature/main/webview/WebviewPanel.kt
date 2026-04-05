@@ -6,6 +6,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import uz.yalla.sipphone.data.jcef.JcefManager
+import java.awt.BorderLayout
+import javax.swing.JPanel
 
 @Composable
 fun WebviewPanel(
@@ -13,21 +15,13 @@ fun WebviewPanel(
     dispatcherUrl: String,
     modifier: Modifier = Modifier,
 ) {
-    val browser = remember(dispatcherUrl) {
-        jcefManager.createBrowser(dispatcherUrl)
-    }
-
-    // Browser lifecycle is owned by JcefManager.shutdown() — no double-dispose here
-    DisposableEffect(browser) {
-        onDispose {
-            // Cleanup handled by JcefManager.shutdown()
-        }
-    }
-
     SwingPanel(
         modifier = modifier,
         factory = {
-            browser.uiComponent
+            val panel = JPanel(BorderLayout())
+            val browser = jcefManager.createBrowser(dispatcherUrl)
+            panel.add(browser.uiComponent, BorderLayout.CENTER)
+            panel
         },
     )
 }
