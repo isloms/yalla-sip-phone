@@ -6,31 +6,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-/**
- * Brand tint surface showing call duration. Only visible during active call.
- *
- * - Background: brandPrimary @ 15% alpha
- * - Border: brandPrimary @ 30% alpha
- * - Text: brandLight (#C8CBFA)
- * - Font: monospace, tabular-nums
- * - Rounded 6dp
- */
 @Composable
 fun CallTimer(
     duration: String?,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalYallaColors.current
-    val shape = RoundedCornerShape(6.dp)
+    val tokens = LocalAppTokens.current
 
     AnimatedVisibility(
         visible = duration != null,
@@ -41,13 +30,13 @@ fun CallTimer(
         duration?.let { text ->
             Text(
                 text = text,
-                fontSize = 12.sp,
+                fontSize = tokens.textBase,
                 fontFamily = FontFamily.Monospace,
                 color = colors.brandLight,
                 modifier = Modifier
-                    .background(colors.brandPrimary.copy(alpha = 0.15f), shape)
-                    .border(1.dp, colors.brandPrimary.copy(alpha = 0.3f), shape)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .background(colors.brandPrimary.copy(alpha = tokens.alphaLight), tokens.shapeXs)
+                    .border(tokens.dividerThickness, colors.brandPrimary.copy(alpha = tokens.alphaMedium), tokens.shapeXs)
+                    .padding(horizontal = tokens.spacingSm, vertical = tokens.spacingXs),
             )
         }
     }

@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
@@ -15,38 +13,17 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.ui.component.YallaIconButton
 import uz.yalla.sipphone.ui.strings.LocalStrings
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-private val ButtonSize = 36.dp
-private val IconSize = 18.dp
-private val ButtonShape = RoundedCornerShape(8.dp)
-
-/**
- * Call action buttons — state-dependent row of 36dp icon buttons.
- *
- * - Idle: 3 disabled buttons (call, mute, hold) at 40% opacity
- * - Ringing inbound: Answer (brand bg, glow) + Reject (red bg) + "Qo'ng'iroq..." label
- * - Ringing outbound: Cancel (red bg)
- * - Active: Hangup (red bg) + Mute toggle + Hold toggle
- * - Ending: no buttons
- */
 @Composable
 fun CallActions(
     callState: CallState,
@@ -60,211 +37,113 @@ fun CallActions(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
 
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-        Row(
-            modifier = modifier,
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            when (callState) {
-                is CallState.Idle -> {
-                    // Call button — brand when enabled, muted when disabled
-                    IconButton(
-                        onClick = onCall,
-                        enabled = !phoneInputEmpty,
-                        modifier = Modifier.size(ButtonSize),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = colors.brandPrimary,
-                            contentColor = Color.White,
-                            disabledContainerColor = colors.surfaceMuted,
-                            disabledContentColor = colors.brandLight,
-                        ),
-                    ) {
-                        Icon(
-                            Icons.Filled.Call,
-                            contentDescription = strings.buttonCall,
-                            modifier = Modifier.size(IconSize),
-                        )
-                    }
-                    // Mute button (always disabled in idle)
-                    IconButton(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier.size(ButtonSize),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            disabledContainerColor = colors.surfaceMuted,
-                            disabledContentColor = colors.brandLight,
-                        ),
-                    ) {
-                        Icon(
-                            Icons.Filled.Mic,
-                            contentDescription = strings.buttonMute,
-                            modifier = Modifier.size(IconSize),
-                        )
-                    }
-                    // Hold button (always disabled in idle)
-                    IconButton(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier.size(ButtonSize),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            disabledContainerColor = colors.surfaceMuted,
-                            disabledContentColor = colors.brandLight,
-                        ),
-                    ) {
-                        Icon(
-                            Icons.Filled.Pause,
-                            contentDescription = strings.buttonHold,
-                            modifier = Modifier.size(IconSize),
-                        )
-                    }
-                }
-
-                is CallState.Ringing -> {
-                    if (!callState.isOutbound) {
-                        // Answer button — brand bg
-                        IconButton(
-                            onClick = onAnswer,
-                            modifier = Modifier
-                                .size(ButtonSize)
-                                .pointerHoverIcon(PointerIcon.Hand),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = colors.brandPrimary,
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Icon(
-                                Icons.Filled.Phone,
-                                contentDescription = strings.buttonAnswer,
-                                modifier = Modifier.size(IconSize),
-                            )
-                        }
-
-                        // Reject button — red bg
-                        IconButton(
-                            onClick = onReject,
-                            modifier = Modifier
-                                .size(ButtonSize)
-                                .pointerHoverIcon(PointerIcon.Hand),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = colors.destructive,
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = strings.buttonReject,
-                                modifier = Modifier.size(IconSize),
-                            )
-                        }
-
-                        // "Qo'ng'iroq..." label
-                        Text(
-                            text = strings.sipRinging,
-                            fontSize = 12.sp,
-                            color = colors.brandLight,
-                            modifier = Modifier
-                                .background(
-                                    colors.brandPrimary.copy(alpha = 0.15f),
-                                    RoundedCornerShape(6.dp),
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                        )
-                    } else {
-                        // Outbound ringing — cancel button
-                        IconButton(
-                            onClick = onHangup,
-                            modifier = Modifier
-                                .size(ButtonSize)
-                                .pointerHoverIcon(PointerIcon.Hand),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = colors.destructive,
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Icon(
-                                Icons.Filled.CallEnd,
-                                contentDescription = strings.buttonHangup,
-                                modifier = Modifier.size(IconSize),
-                            )
-                        }
-
-                        Text(
-                            text = strings.sipRinging,
-                            fontSize = 12.sp,
-                            color = colors.brandLight,
-                            modifier = Modifier
-                                .background(
-                                    colors.brandPrimary.copy(alpha = 0.15f),
-                                    RoundedCornerShape(6.dp),
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                        )
-                    }
-                }
-
-                is CallState.Active -> {
-                    // Hangup — red bg
-                    IconButton(
-                        onClick = onHangup,
-                        modifier = Modifier
-                            .size(ButtonSize)
-                            .pointerHoverIcon(PointerIcon.Hand),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = colors.destructive,
-                            contentColor = Color.White,
-                        ),
-                    ) {
-                        Icon(
-                            Icons.Filled.CallEnd,
-                            contentDescription = strings.buttonHangup,
-                            modifier = Modifier.size(IconSize),
-                        )
-                    }
-
-                    // Mute toggle
-                    IconButton(
-                        onClick = onToggleMute,
-                        modifier = Modifier
-                            .size(ButtonSize)
-                            .pointerHoverIcon(PointerIcon.Hand),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (callState.isMuted) colors.brandPrimary.copy(alpha = 0.15f) else colors.backgroundSecondary,
-                            contentColor = if (callState.isMuted) colors.brandPrimary else colors.iconSubtle,
-                        ),
-                    ) {
-                        Icon(
-                            if (callState.isMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
-                            contentDescription = if (callState.isMuted) strings.buttonUnmute else strings.buttonMute,
-                            modifier = Modifier.size(IconSize),
-                        )
-                    }
-
-                    // Hold toggle
-                    IconButton(
-                        onClick = onToggleHold,
-                        modifier = Modifier
-                            .size(ButtonSize)
-                            .pointerHoverIcon(PointerIcon.Hand),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (callState.isOnHold) colors.brandPrimary.copy(alpha = 0.15f) else colors.backgroundSecondary,
-                            contentColor = if (callState.isOnHold) colors.brandPrimary else colors.iconSubtle,
-                        ),
-                    ) {
-                        Icon(
-                            if (callState.isOnHold) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                            contentDescription = if (callState.isOnHold) strings.buttonResume else strings.buttonHold,
-                            modifier = Modifier.size(IconSize),
-                        )
-                    }
-                }
-
-                is CallState.Ending -> {
-                    // No controls during ending transition
-                }
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(tokens.toolbarZoneGap),
+    ) {
+        when (callState) {
+            is CallState.Idle -> {
+                YallaIconButton(
+                    icon = Icons.Filled.Call,
+                    contentDescription = strings.buttonCall,
+                    onClick = onCall,
+                    enabled = !phoneInputEmpty,
+                    containerColor = colors.brandPrimary,
+                    contentColor = Color.White,
+                    disabledContainerColor = colors.surfaceMuted,
+                    disabledContentColor = colors.brandLight,
+                )
+                YallaIconButton(
+                    icon = Icons.Filled.Mic,
+                    contentDescription = strings.buttonMute,
+                    onClick = {},
+                    enabled = false,
+                    disabledContainerColor = colors.surfaceMuted,
+                    disabledContentColor = colors.brandLight,
+                )
+                YallaIconButton(
+                    icon = Icons.Filled.Pause,
+                    contentDescription = strings.buttonHold,
+                    onClick = {},
+                    enabled = false,
+                    disabledContainerColor = colors.surfaceMuted,
+                    disabledContentColor = colors.brandLight,
+                )
             }
+
+            is CallState.Ringing -> {
+                if (!callState.isOutbound) {
+                    YallaIconButton(
+                        icon = Icons.Filled.Phone,
+                        contentDescription = strings.buttonAnswer,
+                        onClick = onAnswer,
+                        containerColor = colors.brandPrimary,
+                        contentColor = Color.White,
+                    )
+                    YallaIconButton(
+                        icon = Icons.Filled.Close,
+                        contentDescription = strings.buttonReject,
+                        onClick = onReject,
+                        containerColor = colors.destructive,
+                        contentColor = Color.White,
+                    )
+                } else {
+                    YallaIconButton(
+                        icon = Icons.Filled.CallEnd,
+                        contentDescription = strings.buttonHangup,
+                        onClick = onHangup,
+                        containerColor = colors.destructive,
+                        contentColor = Color.White,
+                    )
+                }
+                RingingLabel()
+            }
+
+            is CallState.Active -> {
+                YallaIconButton(
+                    icon = Icons.Filled.CallEnd,
+                    contentDescription = strings.buttonHangup,
+                    onClick = onHangup,
+                    containerColor = colors.destructive,
+                    contentColor = Color.White,
+                )
+                YallaIconButton(
+                    icon = if (callState.isMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
+                    contentDescription = if (callState.isMuted) strings.buttonUnmute else strings.buttonMute,
+                    onClick = onToggleMute,
+                    containerColor = if (callState.isMuted) colors.brandPrimary.copy(alpha = tokens.alphaLight) else colors.backgroundSecondary,
+                    contentColor = if (callState.isMuted) colors.brandPrimary else colors.iconSubtle,
+                )
+                YallaIconButton(
+                    icon = if (callState.isOnHold) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                    contentDescription = if (callState.isOnHold) strings.buttonResume else strings.buttonHold,
+                    onClick = onToggleHold,
+                    containerColor = if (callState.isOnHold) colors.brandPrimary.copy(alpha = tokens.alphaLight) else colors.backgroundSecondary,
+                    contentColor = if (callState.isOnHold) colors.brandPrimary else colors.iconSubtle,
+                )
+            }
+
+            is CallState.Ending -> {}
         }
     }
+}
+
+@Composable
+private fun RingingLabel() {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    val strings = LocalStrings.current
+
+    Text(
+        text = strings.sipRinging,
+        fontSize = tokens.textBase,
+        color = colors.brandLight,
+        modifier = Modifier
+            .background(colors.brandPrimary.copy(alpha = tokens.alphaLight), tokens.shapeXs)
+            .padding(horizontal = tokens.spacingSm, vertical = tokens.spacingXs),
+    )
 }
