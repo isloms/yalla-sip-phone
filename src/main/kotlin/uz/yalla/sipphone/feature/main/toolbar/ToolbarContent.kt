@@ -86,6 +86,8 @@ fun ToolbarContent(
             // Agent Status Button
             AgentStatusButton(
                 currentStatus = agentStatus,
+                isDarkTheme = isDarkTheme,
+                locale = locale,
                 onStatusSelected = component::setAgentStatus,
             )
 

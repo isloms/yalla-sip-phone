@@ -64,14 +64,17 @@ fun PhoneField(
 
     val shape = RoundedCornerShape(8.dp)
 
+    val fieldTextStyle = TextStyle(
+        color = textColor,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 13.sp,
+        lineHeight = 36.sp, // match field height for vertical centering
+    )
+
     BasicTextField(
         value = phoneNumber,
         onValueChange = onValueChange,
-        textStyle = TextStyle(
-            color = textColor,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 13.sp,
-        ),
+        textStyle = fieldTextStyle,
         singleLine = true,
         cursorBrush = if (isFocused) SolidColor(colors.buttonActive) else SolidColor(Color.Transparent),
         decorationBox = { innerTextField ->
@@ -87,9 +90,7 @@ fun PhoneField(
                 if (phoneNumber.isEmpty()) {
                     Text(
                         text = strings.placeholderPhone,
-                        color = colors.textSubtle,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
+                        style = fieldTextStyle.copy(color = colors.textSubtle),
                     )
                 }
                 innerTextField()
