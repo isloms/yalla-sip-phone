@@ -1,5 +1,9 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,7 +68,12 @@ fun SettingsPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (!visible) return
+    val animState = remember { MutableTransitionState(false) }
+    animState.targetState = visible
+
+    // Keep Popup alive while exit animation plays, dismiss when fully gone
+    val showPopup = visible || animState.currentState || animState.isIdle.not()
+    if (!showPopup) return
 
     val colors = LocalYallaColors.current
     val tokens = LocalAppTokens.current
@@ -72,6 +84,11 @@ fun SettingsPanel(
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true),
     ) {
+        AnimatedVisibility(
+            visibleState = animState,
+            enter = slideInHorizontally(initialOffsetX = { it }),
+            exit = slideOutHorizontally(targetOffsetX = { it }),
+        ) {
         Column(
             modifier = Modifier
                 .width(280.dp)
@@ -192,6 +209,7 @@ fun SettingsPanel(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
         }
+        } // AnimatedVisibility
     }
 }
 
