@@ -1,7 +1,6 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
@@ -30,7 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,8 +37,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.component.YallaSegmentedControl
@@ -48,11 +44,6 @@ import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-/**
- * Settings side panel — Popup-based, renders above JCEF on the right side.
- * Uses Popup (becomes OS-level window via compose.layers.type=WINDOW).
- * Slide animation via AnimatedVisibility + MutableTransitionState.
- */
 @Composable
 fun SettingsPanel(
     visible: Boolean,
@@ -65,142 +56,130 @@ fun SettingsPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val animState = remember { MutableTransitionState(false) }
-    animState.targetState = visible
-
-    // Keep Popup alive during exit animation
-    val showPopup = visible || animState.currentState || !animState.isIdle
-    if (!showPopup) return
-
     val colors = LocalYallaColors.current
     val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
 
-    Popup(
-        alignment = Alignment.TopEnd,
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInHorizontally(initialOffsetX = { it }),
+        exit = slideOutHorizontally(targetOffsetX = { it }),
+        modifier = modifier,
     ) {
-        AnimatedVisibility(
-            visibleState = animState,
-            enter = slideInHorizontally(initialOffsetX = { it }),
-            exit = slideOutHorizontally(targetOffsetX = { it }),
+        Column(
+            modifier = Modifier
+                .width(260.dp)
+                .fillMaxHeight()
+                .background(colors.backgroundSecondary)
+                .padding(tokens.spacingMd)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Column(
-                modifier = Modifier
-                    .width(260.dp)
-                    .fillMaxHeight()
-                    .background(colors.backgroundSecondary)
-                    .padding(tokens.spacingMd)
-                    .verticalScroll(rememberScrollState()),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = strings.settingsTitle,
-                        fontSize = tokens.textXl,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.textBase,
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(tokens.shapeXs)
-                            .background(colors.backgroundTertiary)
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .clickable(onClick = onDismiss),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Close, null,
-                            modifier = Modifier.size(14.dp),
-                            tint = colors.iconSubtle,
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(tokens.spacingMd))
-
-                if (agentInfo != null) {
-                    AgentInfoCard(agentInfo)
-                    Spacer(Modifier.height(tokens.spacingMd))
-                }
-
-                HorizontalDivider(color = colors.borderDefault)
-                Spacer(Modifier.height(tokens.spacingMd))
-
-                SettingsRow(label = strings.settingsTheme) {
-                    YallaSegmentedControl(
-                        selectedIndex = if (isDarkTheme) 1 else 0,
-                        onSelect = { index ->
-                            val wantDark = index == 1
-                            if (wantDark != isDarkTheme) onThemeToggle()
-                        },
-                        first = {
-                            Icon(
-                                Icons.Filled.LightMode, null,
-                                modifier = Modifier.size(tokens.iconSmall),
-                                tint = if (!isDarkTheme) colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                        second = {
-                            Icon(
-                                Icons.Filled.DarkMode, null,
-                                modifier = Modifier.size(tokens.iconSmall),
-                                tint = if (isDarkTheme) colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                    )
-                }
-
-                Spacer(Modifier.height(tokens.spacingMdSm))
-
-                SettingsRow(label = strings.settingsLocale) {
-                    YallaSegmentedControl(
-                        selectedIndex = if (locale == "ru") 1 else 0,
-                        onSelect = { index -> onLocaleChange(if (index == 0) "uz" else "ru") },
-                        first = {
-                            Text(
-                                "UZ", fontSize = tokens.textBase, fontWeight = FontWeight.Medium,
-                                color = if (locale == "uz") colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                        second = {
-                            Text(
-                                "RU", fontSize = tokens.textBase, fontWeight = FontWeight.Medium,
-                                color = if (locale == "ru") colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                    )
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                HorizontalDivider(color = colors.borderDefault)
-                Spacer(Modifier.height(tokens.spacingSm))
-
-                TextButton(
-                    onClick = onLogout,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pointerHoverIcon(PointerIcon.Hand),
-                    colors = ButtonDefaults.textButtonColors(contentColor = colors.destructive),
-                ) {
-                    Text(strings.settingsLogout, fontSize = tokens.textMd, fontWeight = FontWeight.Medium)
-                }
-
-                Spacer(Modifier.height(tokens.spacingXs))
-
                 Text(
-                    text = "v${SipConstants.APP_VERSION}",
-                    fontSize = tokens.textXs,
-                    color = colors.textSubtle,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    text = strings.settingsTitle,
+                    fontSize = tokens.textXl,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.textBase,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(tokens.shapeXs)
+                        .background(colors.backgroundTertiary)
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Close, null,
+                        modifier = Modifier.size(14.dp),
+                        tint = colors.iconSubtle,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(tokens.spacingMd))
+
+            if (agentInfo != null) {
+                AgentInfoCard(agentInfo)
+                Spacer(Modifier.height(tokens.spacingMd))
+            }
+
+            HorizontalDivider(color = colors.borderDefault)
+            Spacer(Modifier.height(tokens.spacingMd))
+
+            SettingsRow(label = strings.settingsTheme) {
+                YallaSegmentedControl(
+                    selectedIndex = if (isDarkTheme) 1 else 0,
+                    onSelect = { index ->
+                        val wantDark = index == 1
+                        if (wantDark != isDarkTheme) onThemeToggle()
+                    },
+                    first = {
+                        Icon(
+                            Icons.Filled.LightMode, null,
+                            modifier = Modifier.size(tokens.iconSmall),
+                            tint = if (!isDarkTheme) colors.brandPrimary else colors.textSubtle,
+                        )
+                    },
+                    second = {
+                        Icon(
+                            Icons.Filled.DarkMode, null,
+                            modifier = Modifier.size(tokens.iconSmall),
+                            tint = if (isDarkTheme) colors.brandPrimary else colors.textSubtle,
+                        )
+                    },
                 )
             }
+
+            Spacer(Modifier.height(tokens.spacingMdSm))
+
+            SettingsRow(label = strings.settingsLocale) {
+                YallaSegmentedControl(
+                    selectedIndex = if (locale == "ru") 1 else 0,
+                    onSelect = { index -> onLocaleChange(if (index == 0) "uz" else "ru") },
+                    first = {
+                        Text(
+                            "UZ", fontSize = tokens.textBase, fontWeight = FontWeight.Medium,
+                            color = if (locale == "uz") colors.brandPrimary else colors.textSubtle,
+                        )
+                    },
+                    second = {
+                        Text(
+                            "RU", fontSize = tokens.textBase, fontWeight = FontWeight.Medium,
+                            color = if (locale == "ru") colors.brandPrimary else colors.textSubtle,
+                        )
+                    },
+                )
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            HorizontalDivider(color = colors.borderDefault)
+            Spacer(Modifier.height(tokens.spacingSm))
+
+            TextButton(
+                onClick = onLogout,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerHoverIcon(PointerIcon.Hand),
+                colors = ButtonDefaults.textButtonColors(contentColor = colors.destructive),
+            ) {
+                Text(strings.settingsLogout, fontSize = tokens.textMd, fontWeight = FontWeight.Medium)
+            }
+
+            Spacer(Modifier.height(tokens.spacingXs))
+
+            Text(
+                text = "v${SipConstants.APP_VERSION}",
+                fontSize = tokens.textXs,
+                color = colors.textSubtle,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
         }
     }
 }
