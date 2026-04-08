@@ -20,8 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -166,15 +166,14 @@ fun SettingsDialog(
                     Spacer(Modifier.height(t.spacingLg))
 
                     // Logout
-                    Button(
+                    TextButton(
                         onClick = { onDismiss(); onLogout() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(t.iconButtonSizeLarge)
                             .pointerHoverIcon(PointerIcon.Hand),
                         shape = t.shapeSmall,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.destructive.copy(alpha = t.alphaMuted),
+                        colors = ButtonDefaults.textButtonColors(
                             contentColor = colors.destructive,
                         ),
                     ) {
