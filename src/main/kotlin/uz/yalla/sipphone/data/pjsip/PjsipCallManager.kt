@@ -101,19 +101,16 @@ class PjsipCallManager(
             if (hold) {
                 call.setHold(prm)
             } else {
-                prm.opt.flag = 0
+                prm.opt.flag = org.pjsip.pjsua2.pjsua_call_flag.PJSUA_CALL_UNHOLD.toLong()
                 call.reinvite(prm)
             }
         }
         _callState.value = state.copy(isOnHold = hold)
+        // pjsip call sent successfully — release the guard immediately.
+        // connectCallAudio() handles the actual media reconnection separately.
+        holdInProgress = false
         holdTimeoutJob?.cancel()
-        holdTimeoutJob = scope.launch {
-            delay(5_000)
-            if (holdInProgress) {
-                logger.warn { "Hold timeout — resetting holdInProgress flag" }
-                holdInProgress = false
-            }
-        }
+        holdTimeoutJob = null
     }
 
     suspend fun makeCall(number: String): Result<Unit> {

@@ -1,80 +1,133 @@
 # Yalla SIP Phone
 
-Desktop VoIP softphone for call center operators. Built with Kotlin, Compose Desktop, and pjsip.
-
-**Version:** 0.3.0-alpha (Phase 3 complete)
+Desktop VoIP softphone for [Ildam](https://github.com/RoyalTaxi) call center operators. Connects to Oktell and Asterisk PBX via SIP. Built with Kotlin, Compose Desktop, and pjsip.
 
 ## Tech Stack
 
-| Component        | Technology                             |
-|------------------|----------------------------------------|
-| Language         | Kotlin 2.1.20                          |
-| UI               | Compose Desktop 1.8.2 (Material 3)    |
-| SIP engine       | pjsip via SWIG/JNI bindings           |
-| Navigation       | Decompose 3.4.0                        |
-| DI               | Koin 4.1.1                             |
-| Theming          | MaterialKolor 2.0.0                    |
-| Embedded browser | JCEF (Chromium, for dispatcher web UI) |
-| Logging          | Logback + kotlin-logging               |
+| Component | Technology |
+|-----------|-----------|
+| Language | Kotlin 2.1.20 |
+| UI | Compose Desktop 1.8.2 (Material 3) |
+| SIP engine | pjsip 2.16 via SWIG/JNI |
+| Navigation | Decompose 3.4.0 |
+| DI | Koin 4.1.1 |
+| Theming | MaterialKolor 2.0.0 |
+| Embedded browser | JCEF (Chromium — dispatcher web UI) |
+| Logging | Logback + kotlin-logging |
+| Settings | multiplatform-settings |
+| Testing | JUnit 5, Turbine, Compose UI Test |
 
-## Prerequisites
+## Quick Start
+
+### Prerequisites
 
 - JDK 21+
-- Gradle 8.x (wrapper included)
 - pjsip native library for your platform:
-  - macOS: `libs/libpjsua2.dylib`
+  - macOS: `libs/libpjsua2.jnilib`
   - Windows: `libs/pjsua2.dll`
   - Linux: `libs/libpjsua2.so`
 
-## Build and Run
+### Run
 
 ```bash
-./gradlew run            # Run the app
-./gradlew test           # Run tests
-./gradlew build          # Full build
-./gradlew runDemo        # Run with fake SIP engines (no pjsip needed)
-./gradlew packageDmg     # Package for macOS
-./gradlew packageMsi     # Package for Windows
-./gradlew packageDeb     # Package for Linux
+./gradlew run                # Run with real SIP engine
+./gradlew runDemo            # Run with fake engines (no pjsip needed)
+./gradlew test               # Run tests
+./gradlew build              # Full build
+```
+
+### Package
+
+```bash
+./gradlew packageDmg         # macOS
+./gradlew packageMsi         # Windows (requires WiX Toolset v3)
+./gradlew packageDeb         # Linux
 ```
 
 ## Architecture
 
-The project follows Clean Architecture with an MVI pattern using StateFlow.
+Clean Architecture with MVI pattern. Domain layer defines pure Kotlin interfaces, data layer provides pjsip/JCEF implementations, features consume domain through Koin.
 
 ```
 uz.yalla.sipphone/
-├── domain/        Pure interfaces (RegistrationEngine, CallEngine, SipStackLifecycle)
+├── domain/          Pure interfaces and models (15 files)
 ├── data/
-│   ├── pjsip/     pjsip implementation via facade + managers
-│   ├── jcef/      Chromium browser bridge for dispatcher web UI
-│   ├── settings/  Persistent settings
-│   └── auth/      Authentication data layer
+│   ├── pjsip/       SIP implementation via pjsip JNI (8 files)
+│   ├── jcef/        Chromium browser + JS bridge (5 files)
+│   ├── auth/        Authentication (mock, real backend planned)
+│   └── settings/    Persistent settings
 ├── feature/
-│   ├── login/     SIP login screen
-│   └── main/      Main screen (toolbar + webview)
-├── navigation/    Decompose-based type-safe navigation
-├── di/            Koin modules
-└── ui/            Theme, components, strings
+│   ├── login/       SIP login screen
+│   └── main/        Main screen (toolbar + webview)
+├── navigation/      Decompose type-safe navigation
+├── di/              Koin modules
+├── ui/              Theme, design tokens, strings
+└── util/            Phone masking, time formatting
 ```
 
-The domain layer defines pure Kotlin interfaces for SIP operations. The data layer provides concrete implementations backed by pjsip (via JNI) and JCEF. Features consume domain interfaces through Koin injection, keeping the UI layer decoupled from SIP internals.
+See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
 
-## Project Status
+## Features
 
-- Phase 1 ✅ SIP Registration
-- Phase 2 ✅ Calling (outbound/inbound, answer, hangup)
-- Phase 3 ✅ Architecture refactor, UI redesign, JCEF integration, packaging
-- Phase 4 -- Auto-reconnect, TLS/SRTP, credential encryption
-- Phase 5 -- DTMF, transfer, conferencing, call recording
+### Implemented
+
+- SIP registration (UDP/TCP) with credential persistence
+- Outbound/inbound calls with answer, reject, hangup
+- Mute and hold with proper pjsip media routing
+- DTMF tone sending (IVR navigation)
+- Blind call transfer (SIP REFER)
+- Auto-reconnect with exponential backoff
+- JS Bridge API for dispatcher web panel integration
+- Call event simulator for frontend testing
+- Native packaging (DMG, MSI, DEB)
+- Material 3 UI with dark/light themes
+- Keyboard shortcuts (Space to answer, Ctrl+L for phone input)
+
+### Not Yet Implemented
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| Real backend auth | P0 | Blocked — backend needs to add SIP config to `/auth/login` |
+| Audio device selection | P0 | |
+| TLS/SRTP | P0 | Signaling + media encryption |
+| Auto-answer | P1 | Configurable for Ready agents |
+| Multiple concurrent calls | P1 | Hold/switch between calls |
+| Attended transfer | P1 | Consult-then-transfer |
+| Call quality monitoring | P1 | Real MOS/jitter/loss metrics |
+| Call history/CDR | P1 | Agent accountability |
+| Auto-update | P1 | Design ready, see [docs/planned/auto-update.md](docs/planned/auto-update.md) |
+| System tray + notifications | P2 | |
+| i18n (uz/ru/en) | P2 | String extraction done |
+
+## Codebase Stats
+
+| Metric | Count |
+|--------|-------|
+| Source files | 62 |
+| Test files | 28 |
+| Source lines | ~5,400 |
+| Test lines | ~3,600 |
+| Test methods | 133 |
 
 ## Platform Support
 
-| Platform | Status                       |
-|----------|------------------------------|
-| macOS    | Primary development platform |
-| Windows  | Tested, packaged as MSI      |
-| Linux    | Deb packaging available      |
+| Platform | Status |
+|----------|--------|
+| macOS (arm64) | Primary development platform |
+| Windows (x64) | Tested, packaged as MSI |
+| Linux (x64) | DEB packaging available |
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture.md) | Code structure, patterns, module descriptions |
+| [pjsip Guide](docs/pjsip-guide.md) | Critical pjsip/SWIG rules and gotchas |
+| [JS Bridge API](docs/js-bridge-api.md) | Frontend integration guide for dispatcher panel |
+| [Testing](docs/testing.md) | Test framework, demo mode, writing tests |
+| [Windows Build](docs/windows-build.md) | Windows MSI build guide with pjsip compilation |
+| [Backend Auth](docs/planned/backend-auth.md) | Real auth integration plan (blocked) |
+| [Auto-Update](docs/planned/auto-update.md) | Auto-update mechanism design |
 
 ## License
 

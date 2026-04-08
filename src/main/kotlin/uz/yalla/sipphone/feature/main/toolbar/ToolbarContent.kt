@@ -69,10 +69,11 @@ fun ToolbarContent(
         }
     }
 
-    // Call timer
+    // Call timer — keyed by callId so hold/unhold/mute don't reset it
+    val activeCallId = (callState as? CallState.Active)?.callId
     var callDuration by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(callState) {
-        if (callState is CallState.Active) {
+    LaunchedEffect(activeCallId) {
+        if (activeCallId != null) {
             callDuration = 0
             while (isActive) {
                 delay(1000)

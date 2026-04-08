@@ -80,7 +80,7 @@ class LoginComponentTest {
         fakeRegistration.simulateRegistered("192.168.30.103")
         advanceUntilIdle()
         assertTrue(navigatedResult != null)
-        assertEquals("Alisher", navigatedResult?.agent?.name)
+        assertEquals("Islom", navigatedResult?.agent?.name)
     }
 
     @Test
