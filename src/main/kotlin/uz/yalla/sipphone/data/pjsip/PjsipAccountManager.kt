@@ -16,51 +16,26 @@ import uz.yalla.sipphone.domain.SipError
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * Listener for incoming calls, including the [accountId] that received the call.
- */
 interface IncomingCallListener {
     fun onIncomingCall(accountId: String, callId: Int)
 }
 
-/**
- * Listener for per-account registration state changes.
- * Used by [PjsipSipAccountManager] to track individual account states.
- */
 interface AccountRegistrationListener {
     fun onAccountRegistrationState(accountId: String, state: PjsipRegistrationState)
 }
 
-/**
- * Provides access to the pjsip account map for call routing.
- */
 interface AccountProvider {
     fun getAccount(accountId: String): PjsipAccount?
     fun getFirstConnectedAccount(): PjsipAccount?
     val lastRegisteredServer: String?
 }
 
-/**
- * Manages multiple pjsip accounts (SIP registrations) on the pjsip event-loop thread.
- *
- * Each account is identified by a unique [accountId] (typically "extension@server").
- * All public methods must be called on the pjsip dispatcher thread.
- *
- * Rate limiting is applied per-account to prevent hammering the SIP server.
- */
 class PjsipAccountManager(
     private val isDestroyed: () -> Boolean,
 ) : AccountProvider {
 
-    /**
-     * Per-account registration state flows. Keyed by accountId.
-     * Each account gets its own state flow for independent monitoring.
-     */
     private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
 
-    /**
-     * Map of active pjsip accounts. Keyed by accountId.
-     */
     val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
 
     override var lastRegisteredServer: String? = null
@@ -69,21 +44,14 @@ class PjsipAccountManager(
     var incomingCallListener: IncomingCallListener? = null
     var accountRegistrationListener: AccountRegistrationListener? = null
 
-    /** Per-account rate limiting timestamps. */
     private val lastRegisterAttemptMs = mutableMapOf<String, Long>()
 
-    /**
-     * Returns the per-account registration state flow, creating one if needed.
-     */
     fun getAccountStateFlow(accountId: String): StateFlow<PjsipRegistrationState> {
         return _accountStates.getOrPut(accountId) {
             MutableStateFlow(PjsipRegistrationState.Idle)
         }.asStateFlow()
     }
 
-    /**
-     * Called by [PjsipAccount.onRegState] to update per-account registration state.
-     */
     fun updateRegistrationState(accountId: String, state: PjsipRegistrationState) {
         if (state is PjsipRegistrationState.Registered) {
             lastRegisteredServer = state.server
@@ -95,9 +63,6 @@ class PjsipAccountManager(
 
     fun isAccountDestroyed(): Boolean = isDestroyed()
 
-    /**
-     * Called by [PjsipAccount.onIncomingCall] with the accountId that received the call.
-     */
     fun handleIncomingCall(accountId: String, callId: Int) {
         incomingCallListener?.onIncomingCall(accountId, callId)
     }
@@ -110,14 +75,6 @@ class PjsipAccountManager(
         }?.value
     }
 
-    /**
-     * Registers a single account by [accountId] with the given [credentials].
-     *
-     * If an account with the same [accountId] already exists, it is unregistered first.
-     * Rate limiting is applied per-account (minimum [SipConstants.RATE_LIMIT_MS] between attempts).
-     *
-     * Must be called on the pjsip dispatcher thread.
-     */
     suspend fun register(accountId: String, credentials: SipCredentials): Result<Unit> {
         val stateFlow = _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
 
@@ -125,7 +82,6 @@ class PjsipAccountManager(
             return Result.failure(IllegalStateException("Registration already in progress for $accountId"))
         }
 
-        // Per-account rate limiting
         val now = System.currentTimeMillis()
         val lastAttempt = lastRegisterAttemptMs[accountId] ?: 0L
         val elapsed = now - lastAttempt
@@ -137,7 +93,6 @@ class PjsipAccountManager(
         val wasRegistered = stateFlow.value is PjsipRegistrationState.Registered
         stateFlow.value = PjsipRegistrationState.Registering
 
-        // Tear down existing account if present
         accounts[accountId]?.let { prevAccount ->
             try {
                 prevAccount.setRegistration(false)
@@ -191,10 +146,6 @@ class PjsipAccountManager(
         }
     }
 
-    /**
-     * Unregisters a specific account by [accountId].
-     * Sends REGISTER with expires=0, waits for confirmation, then deletes the SWIG object.
-     */
     suspend fun unregister(accountId: String) {
         val acc = accounts[accountId] ?: return
         val stateFlow = _accountStates[accountId] ?: return
@@ -214,9 +165,6 @@ class PjsipAccountManager(
         }
     }
 
-    /**
-     * Unregisters all accounts. Iterates a snapshot of the account map.
-     */
     suspend fun unregisterAll() {
         val accountIds = accounts.keys.toList()
         for (id in accountIds) {
@@ -224,10 +172,6 @@ class PjsipAccountManager(
         }
     }
 
-    /**
-     * Destroys all accounts and cleans up. Called during engine shutdown.
-     * Does a best-effort unregister (with short delay) then deletes all SWIG objects.
-     */
     suspend fun destroy() {
         val accountEntries = accounts.entries.toList()
         for ((id, acc) in accountEntries) {

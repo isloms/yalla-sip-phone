@@ -1,4 +1,3 @@
-// src/main/kotlin/uz/yalla/sipphone/data/jcef/BridgeEventEmitter.kt
 package uz.yalla.sipphone.data.jcef
 
 import kotlinx.serialization.encodeToString
@@ -9,22 +8,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Emits typed SIP events from Kotlin to the embedded JCEF browser page via `window.__yallaSipEmit`.
- *
- * Before the handshake completes, events are buffered in memory and replayed to the web page
- * once [completeHandshake] is called. This prevents the web UI from missing events that fire
- * during page load.
- *
- * Thread safety: [emit] and typed emit methods are safe to call from any thread. The underlying
- * [CefBrowser.executeJavaScript] call is thread-safe in JCEF.
- *
- * Usage:
- * 1. Set [agentInfo], [version], [capabilities] before the browser loads.
- * 2. Call [injectBridgeScript] once the browser frame is ready.
- * 3. Call [completeHandshake] when the web page sends a `_ready` command.
- * 4. Call typed emit methods (e.g. [emitIncomingCall]) as domain events occur.
- */
 class BridgeEventEmitter(
     private val auditLog: BridgeAuditLog,
 ) {
@@ -33,7 +16,6 @@ class BridgeEventEmitter(
     private val bufferedEvents = CopyOnWriteArrayList<String>()
     private var currentBrowser: CefBrowser? = null
 
-    // Agent info for init payload — set before browser loads
     var agentInfo: AgentInfo = AgentInfo("", "")
     var version: String = SipConstants.APP_VERSION
     var capabilities: List<String> = listOf("call", "agentStatus", "callQuality")
@@ -46,26 +28,11 @@ class BridgeEventEmitter(
         bufferedEvents.clear()
     }
 
-    /**
-     * Injects the `window.YallaSIP` JavaScript bridge into [browser].
-     *
-     * Must be called on every new browser frame load. The injected script sets up
-     * `window.__yallaSipEmit` for receiving events and `window.YallaSIP` for issuing commands.
-     */
     fun injectBridgeScript(browser: CefBrowser) {
         currentBrowser = browser
         browser.executeJavaScript(BRIDGE_SCRIPT, browser.url ?: "", 0)
     }
 
-    /**
-     * Marks the handshake as complete and returns the serialised [BridgeInitPayload] JSON.
-     *
-     * The caller (typically [BridgeRouter]'s `_ready` handler) must send the returned JSON
-     * back to the web page as the response to the `_ready` command. Any events buffered
-     * before this call are included in the payload and cleared from the buffer.
-     *
-     * @return JSON string of [BridgeInitPayload] to be returned to the web page.
-     */
     fun completeHandshake(): String {
         handshakeComplete.set(true)
         val init = BridgeInitPayload(
@@ -78,15 +45,6 @@ class BridgeEventEmitter(
         return bridgeJson.encodeToString(init)
     }
 
-    /**
-     * Emits a raw event to the browser page.
-     *
-     * If the handshake is not yet complete the event is buffered and replayed after [completeHandshake].
-     * Prefer the typed emit methods over calling this directly.
-     *
-     * @param eventName JavaScript event name (e.g. `"incomingCall"`).
-     * @param payloadJson Pre-serialised JSON payload string.
-     */
     fun emit(eventName: String, payloadJson: String) {
         auditLog.logEvent(eventName, payloadJson)
 
@@ -97,12 +55,9 @@ class BridgeEventEmitter(
 
         val browser = currentBrowser ?: return
 
-        // Safe: payloadJson is from kotlinx.serialization, eventName is from our enum
         val js = "window.__yallaSipEmit && window.__yallaSipEmit('$eventName', $payloadJson);"
         browser.executeJavaScript(js, browser.url ?: "", 0)
     }
-
-    // --- Typed emit methods for each event ---
 
     fun emitIncomingCall(callId: String, number: String) {
         val event = BridgeEvent.IncomingCall(callId, number, seq = nextSeq(), timestamp = now())
@@ -150,7 +105,7 @@ class BridgeEventEmitter(
             name = name,
             status = status,
             seq = nextSeq(),
-            timestamp = System.currentTimeMillis(),
+            timestamp = now(),
         )
         emit("accountStatusChanged", bridgeJson.encodeToString(event))
     }

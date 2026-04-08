@@ -16,12 +16,6 @@ import javax.swing.SwingUtilities
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * Manages the CefApp/CefClient/CefBrowser lifecycle.
- *
- * Thread safety: all JCEF operations run on Swing EDT via [SwingUtilities.invokeAndWait].
- * CefApp is a strict JVM singleton — only one instance is ever created.
- */
 class JcefManager {
     private var cefApp: CefApp? = null
     private var cefClient: CefClient? = null
@@ -32,12 +26,6 @@ class JcefManager {
 
     val isInitialized: Boolean get() = cefApp != null
 
-    /**
-     * Initialize JCEF runtime. Must be called before [createBrowser].
-     *
-     * @param debugPort Chrome DevTools remote debugging port. 0 = disabled.
-     * @throws IllegalStateException if CefApp.startup() fails
-     */
     fun initialize(debugPort: Int = 0) {
         if (cefApp != null) return
         logger.info { "Initializing JCEF..." }
@@ -88,13 +76,6 @@ class JcefManager {
         }
     }
 
-    /**
-     * Create an embedded browser for the given URL.
-     * Windowed rendering (not OSR) for SwingPanel embedding.
-     *
-     * @return the created [CefBrowser] instance
-     * @throws IllegalStateException if [initialize] hasn't been called
-     */
     fun createBrowser(url: String): CefBrowser {
         val client = cefClient ?: throw IllegalStateException("JCEF not initialized — call initialize() first")
         isBrowserClosed = false
@@ -104,16 +85,6 @@ class JcefManager {
         return browser!!
     }
 
-    /**
-     * Install JS bridge infrastructure on the CefClient.
-     *
-     * Accepts lambdas instead of concrete BridgeRouter/BridgeEventEmitter types
-     * so this class compiles independently of bridge implementation.
-     *
-     * @param installMessageRouter called with [CefClient] to install message router
-     * @param onPageLoadEnd called with [CefBrowser] when main frame finishes loading (inject bridge script)
-     * @param onPageLoadStart called when main frame starts loading (reset handshake)
-     */
     fun setupBridge(
         installMessageRouter: (CefClient) -> Unit,
         onPageLoadEnd: (CefBrowser) -> Unit,
@@ -142,14 +113,6 @@ class JcefManager {
 
     fun isClosed(): Boolean = isBrowserClosed
 
-    /**
-     * Shut down JCEF in the correct order:
-     * 1. Stop browser load & close browser
-     * 2. Dispose client
-     * 3. Dispose CefApp
-     *
-     * All operations on EDT. After this, the manager can be re-initialized.
-     */
     fun shutdown() {
         val app = cefApp ?: return
         val shutdownWork = Runnable {

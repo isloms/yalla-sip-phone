@@ -51,11 +51,7 @@ class PjsipCall : Call {
         }
     }
 
-    /**
-     * Safe delete that prevents double-delete SIGSEGV.
-     * SWIG pointers crash if delete() is called twice on the same native object.
-     * AtomicBoolean.compareAndSet ensures only one thread can win the race.
-     */
+    // Prevents double-delete SIGSEGV — SWIG pointers crash if delete() is called twice
     fun safeDelete() {
         if (!deleted.compareAndSet(false, true)) return
         try {

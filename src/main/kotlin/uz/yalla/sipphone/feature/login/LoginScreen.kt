@@ -97,7 +97,6 @@ fun LoginScreen(component: LoginComponent) {
                 .padding(horizontal = 40.dp, vertical = tokens.spacingXl),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Logo
             Box(
                 modifier = Modifier.size(56.dp).clip(tokens.shapeMedium).background(colors.brandPrimary),
                 contentAlignment = Alignment.Center,
@@ -114,7 +113,6 @@ fun LoginScreen(component: LoginComponent) {
 
             Spacer(Modifier.height(tokens.spacingSm))
 
-            // Subtitle / error
             Box(modifier = Modifier.height(20.dp), contentAlignment = Alignment.Center) {
                 when {
                     errorState?.type == LoginErrorType.WRONG_PASSWORD -> Text(
@@ -131,7 +129,6 @@ fun LoginScreen(component: LoginComponent) {
 
             Spacer(Modifier.height(20.dp))
 
-            // Password field
             val fieldBorderColor = if (errorState?.type == LoginErrorType.WRONG_PASSWORD) colors.destructive else CardBorderDefault
 
             BasicTextField(
@@ -177,7 +174,6 @@ fun LoginScreen(component: LoginComponent) {
 
             Spacer(Modifier.height(tokens.spacingMd))
 
-            // Login button
             val buttonText = when {
                 isLoading -> strings.loginConnecting
                 errorState != null -> strings.loginRetry

@@ -18,27 +18,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * Production implementation of [SipStackLifecycle] and [CallEngine]
- * backed by the pjsua2 SWIG bindings.
- *
- * All operations are marshalled onto a dedicated single-thread coroutine context (`pjsip-event-loop`)
- * that serves as pjsip's event loop. Never call pjsip SWIG objects from any other thread.
- *
- * Registration is no longer handled here — it is delegated to [PjsipSipAccountManager] which
- * wraps [PjsipAccountManager] with per-account reconnection and state management.
- *
- * Exposes [accountManager] and [pjDispatcher] for DI wiring with [PjsipSipAccountManager].
- *
- * SWIG lifecycle: always call [shutdown] before the process exits to avoid native memory leaks.
- * [shutdown] is idempotent — subsequent calls are no-ops.
- */
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class PjsipEngine : SipStackLifecycle, CallEngine {
 
     private val destroyed = AtomicBoolean(false)
 
-    /** Single-thread dispatcher for all pjsip operations. Exposed for DI. */
     @Suppress("OPT_IN_USAGE")
     private val closeableDispatcher: CloseableCoroutineDispatcher = newSingleThreadContext("pjsip-event-loop")
     val pjDispatcher: CoroutineDispatcher get() = closeableDispatcher
@@ -47,7 +31,6 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
 
     private val endpointManager = PjsipEndpointManager(closeableDispatcher)
 
-    /** Low-level multi-account manager. Exposed for DI wiring with [PjsipSipAccountManager]. */
     val accountManager = PjsipAccountManager(::isDestroyed)
 
     private val callManager = PjsipCallManager(

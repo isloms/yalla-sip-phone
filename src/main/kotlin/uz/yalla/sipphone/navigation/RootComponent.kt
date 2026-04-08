@@ -43,7 +43,7 @@ class RootComponent(
                     AuthEvent.SessionExpired -> {
                         logoutOrchestrator.logout()
                         currentAuthResult = null
-                        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+                        navigateToLogin()
                         logoutOrchestrator.reset()
                     }
                 }
@@ -53,28 +53,16 @@ class RootComponent(
 
     private fun createChild(screen: Screen, context: ComponentContext): Child =
         when (screen) {
-            is Screen.Login -> Child.Login(
-                factory.createLogin(context) { authResult ->
-                    currentAuthResult = authResult
-                    navigation.pushNew(Screen.Main)
-                },
-            )
+            is Screen.Login -> createLoginChild(context)
             is Screen.Main -> {
                 val auth = currentAuthResult ?: run {
-                    navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
-                    return@createChild Child.Login(
-                        factory.createLogin(context) { authResult ->
-                            currentAuthResult = authResult
-                            navigation.pushNew(Screen.Main)
-                        },
-                    )
+                    navigateToLogin()
+                    return@createChild createLoginChild(context)
                 }
                 Child.Main(
                     factory.createMain(context, auth) {
-                        // Navigate immediately — don't wait for server logout
                         currentAuthResult = null
-                        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
-                        // Server logout in background (best-effort)
+                        navigateToLogin()
                         scope.launch {
                             logoutOrchestrator.logout()
                             logoutOrchestrator.reset()
@@ -83,6 +71,18 @@ class RootComponent(
                 )
             }
         }
+
+    private fun createLoginChild(context: ComponentContext): Child.Login =
+        Child.Login(
+            factory.createLogin(context) { authResult ->
+                currentAuthResult = authResult
+                navigation.pushNew(Screen.Main)
+            },
+        )
+
+    private fun navigateToLogin() {
+        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+    }
 
     sealed interface Child {
         data class Login(val component: LoginComponent) : Child

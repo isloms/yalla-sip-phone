@@ -17,10 +17,6 @@ import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-/**
- * Two-option segmented control with theme-aware styling.
- * Selected segment gets a light brand tint background.
- */
 @Composable
 fun YallaSegmentedControl(
     selectedIndex: Int,

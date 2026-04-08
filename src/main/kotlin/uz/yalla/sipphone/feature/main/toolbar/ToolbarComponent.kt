@@ -38,15 +38,12 @@ class ToolbarComponent(
     private val _phoneInput = MutableStateFlow("")
     val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
 
-    // Incremented to trigger focus request from UI
     private val _phoneInputFocusRequest = MutableStateFlow(0)
     val phoneInputFocusRequest: StateFlow<Int> = _phoneInputFocusRequest.asStateFlow()
 
-    // Call duration timer — null when no active call
     private val _callDuration = MutableStateFlow<String?>(null)
     val callDuration: StateFlow<String?> = _callDuration.asStateFlow()
 
-    // Settings dialog visibility
     private val _settingsVisible = MutableStateFlow(false)
     val settingsVisible: StateFlow<Boolean> = _settingsVisible.asStateFlow()
 
@@ -65,7 +62,6 @@ class ToolbarComponent(
                     else -> stopRingtone()
                 }
 
-                // Manage call duration timer
                 when (state) {
                     is CallState.Active -> startTimer()
                     else -> stopTimer()

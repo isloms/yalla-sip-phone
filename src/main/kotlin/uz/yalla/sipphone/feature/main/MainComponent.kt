@@ -77,7 +77,6 @@ class MainComponent(
             )
         }
 
-        // --- Call state observation → bridge events ---
         var previousCallState: CallState = CallState.Idle
         var callStartTimestamp: Long = 0L
 
@@ -144,7 +143,6 @@ class MainComponent(
             }
         }
 
-        // --- SIP account state observation → bridge events ---
         var previousConnState: String = "disconnected"
 
         scope.launch {
@@ -163,7 +161,6 @@ class MainComponent(
             }
         }
 
-        // --- Agent status observation → bridge events ---
         var previousAgentStatus = toolbar.agentStatus.value
 
         scope.launch {

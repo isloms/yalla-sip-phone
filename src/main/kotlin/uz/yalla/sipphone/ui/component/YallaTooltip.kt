@@ -15,10 +15,6 @@ import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-/**
- * Tooltip anchored to the component (not following the cursor).
- * Appears above the component, centered horizontally.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun YallaTooltip(

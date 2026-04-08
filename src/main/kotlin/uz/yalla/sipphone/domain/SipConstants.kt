@@ -33,9 +33,7 @@ object SipConstants {
     private val VALID_USERNAME_REGEX = Regex("""^[a-zA-Z0-9._\-+]+$""")
     private val VALID_CALL_NUMBER_REGEX = Regex("""^[0-9*#+]+$""")
 
-    /**
-     * Rejects control characters and SIP header injection attempts.
-     */
+    // Prevents SIP header injection via control characters and special delimiters
     fun validateSipInput(value: String): Boolean {
         if (value.isBlank()) return false
         if (value.any { it.isISOControl() }) return false

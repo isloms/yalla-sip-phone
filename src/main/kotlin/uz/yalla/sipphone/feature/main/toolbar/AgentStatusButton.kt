@@ -68,7 +68,6 @@ fun AgentStatusButton(
     }
 
     Box(modifier = modifier) {
-        // Button
         Box(
             modifier = Modifier
                 .size(tokens.iconButtonSize)

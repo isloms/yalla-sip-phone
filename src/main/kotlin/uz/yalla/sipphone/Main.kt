@@ -9,7 +9,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -42,9 +41,9 @@ import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 private val logger = KotlinLogging.logger {}
 
 fun main() {
-    // Enable Compose rendering above heavyweight SwingPanel (JCEF)
+    // Required for Compose rendering above heavyweight JCEF SwingPanel
     System.setProperty("compose.interop.blending", "true")
-    // Make Compose popups/tooltips use OS-level windows (renders above JCEF)
+    // Required for tooltips/popups to render above JCEF
     System.setProperty("compose.layers.type", "WINDOW")
 
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -71,14 +70,16 @@ fun main() {
 
     val jcefShutdownDone = AtomicBoolean(false)
 
-    Runtime.getRuntime().addShutdownHook(Thread {
+    fun gracefulShutdown() {
         runBlocking {
             withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
         }
         if (jcefShutdownDone.compareAndSet(false, true)) {
             jcefManager.shutdown()
         }
-    })
+    }
+
+    Runtime.getRuntime().addShutdownHook(Thread(::gracefulShutdown))
 
     val decomposeLifecycle = LifecycleRegistry()
     val factory: ComponentFactory = koin.get()
@@ -101,17 +102,16 @@ fun main() {
 
         val childStack by rootComponent.childStack.subscribeAsState()
         val isMainScreen = childStack.active.instance is RootComponent.Child.Main
-        val mainComponent = (childStack.active.instance as? RootComponent.Child.Main)?.component
 
         val windowState = rememberWindowState(
             size = DpSize(1280.dp, 720.dp),
             position = WindowPosition(Alignment.Center),
         )
 
-        // Window is regular — no force unminimize
-
+        val agentName = (childStack.active.instance as? RootComponent.Child.Main)
+            ?.component?.agentInfo?.name.orEmpty()
         val windowTitle = if (isMainScreen) {
-            "${Strings.APP_TITLE} \u2014 ${mainComponent?.agentInfo?.name.orEmpty()}"
+            "${Strings.APP_TITLE} \u2014 $agentName"
         } else {
             Strings.APP_TITLE
         }
@@ -119,7 +119,6 @@ fun main() {
         Window(
             onCloseRequest = {
                 if (isMainScreen) {
-                    // Create dialog with alwaysOnTop to appear above our alwaysOnTop window
                     val pane = javax.swing.JOptionPane(
                         Strings.SETTINGS_LOGOUT_CONFIRM,
                         javax.swing.JOptionPane.QUESTION_MESSAGE,
@@ -130,12 +129,7 @@ fun main() {
                     dialog.isVisible = true
                     val confirm = pane.value as? Int ?: javax.swing.JOptionPane.NO_OPTION
                     if (confirm == javax.swing.JOptionPane.YES_OPTION) {
-                        runBlocking {
-                            withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
-                        }
-                        if (jcefShutdownDone.compareAndSet(false, true)) {
-                            jcefManager.shutdown()
-                        }
+                        gracefulShutdown()
                         exitApplication()
                     }
                 } else {
@@ -147,61 +141,17 @@ fun main() {
             alwaysOnTop = false,
             resizable = isMainScreen,
         ) {
-            // Window properties via AWT — same size for both screens, only resizable/alwaysOnTop change
             LaunchedEffect(isMainScreen) {
                 javax.swing.SwingUtilities.invokeLater {
                     window.minimumSize = java.awt.Dimension(1280, 720)
                 }
             }
 
-            // AWT-level keyboard shortcuts — work regardless of Compose/JCEF focus
+            // AWT-level shortcuts — bypasses Compose/JCEF focus issues
             LaunchedEffect(Unit) {
                 java.awt.Toolkit.getDefaultToolkit().addAWTEventListener({ event ->
                     if (event is KeyEvent && event.id == KeyEvent.KEY_PRESSED) {
-                        // macOS: Cmd+H = Hide, Cmd+M = Minimize — use Ctrl on all platforms
-                        val ctrl = event.isControlDown
-                        val shift = event.isShiftDown
-
-                        val currentChild = rootComponent.childStack.value.active.instance
-                        if (currentChild !is RootComponent.Child.Main) return@addAWTEventListener
-                        val toolbar = (currentChild as RootComponent.Child.Main).component.toolbar
-                        val callState = toolbar.callState.value
-
-                        when {
-                            // Ctrl+Enter = Answer incoming call
-                            ctrl && event.keyCode == KeyEvent.VK_ENTER
-                                && callState is CallState.Ringing && !callState.isOutbound -> {
-                                toolbar.answerCall()
-                                event.consume()
-                            }
-                            // Ctrl+Shift+E = Reject incoming or End active call
-                            ctrl && shift && event.keyCode == KeyEvent.VK_E -> {
-                                when (callState) {
-                                    is CallState.Ringing -> toolbar.rejectCall()
-                                    is CallState.Active -> toolbar.hangupCall()
-                                    else -> {}
-                                }
-                                event.consume()
-                            }
-                            // Ctrl+M = Toggle mute (only during active call)
-                            ctrl && !shift && event.keyCode == KeyEvent.VK_M
-                                && callState is CallState.Active -> {
-                                toolbar.toggleMute()
-                                event.consume()
-                            }
-                            // Ctrl+H = Toggle hold (only during active call)
-                            ctrl && !shift && event.keyCode == KeyEvent.VK_H
-                                && callState is CallState.Active -> {
-                                toolbar.toggleHold()
-                                event.consume()
-                            }
-                            // Ctrl+L = Focus phone input (idle state only)
-                            ctrl && !shift && event.keyCode == KeyEvent.VK_L
-                                && callState is CallState.Idle -> {
-                                toolbar.requestPhoneInputFocus()
-                                event.consume()
-                            }
-                        }
+                        handleKeyboardShortcut(event, rootComponent)
                     }
                 }, AWTEvent.KEY_EVENT_MASK)
             }
@@ -223,6 +173,44 @@ fun main() {
                     },
                 )
             }
+        }
+    }
+}
+
+private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent) {
+    val ctrl = event.isControlDown
+    val shift = event.isShiftDown
+
+    val currentChild = rootComponent.childStack.value.active.instance
+    if (currentChild !is RootComponent.Child.Main) return
+    val toolbar = currentChild.component.toolbar
+    val callState = toolbar.callState.value
+
+    when {
+        ctrl && event.keyCode == KeyEvent.VK_ENTER
+            && callState is CallState.Ringing && !callState.isOutbound -> {
+            toolbar.answerCall()
+            event.consume()
+        }
+        ctrl && shift && event.keyCode == KeyEvent.VK_E -> {
+            when (callState) {
+                is CallState.Ringing -> toolbar.rejectCall()
+                is CallState.Active -> toolbar.hangupCall()
+                else -> {}
+            }
+            event.consume()
+        }
+        ctrl && !shift && event.keyCode == KeyEvent.VK_M && callState is CallState.Active -> {
+            toolbar.toggleMute()
+            event.consume()
+        }
+        ctrl && !shift && event.keyCode == KeyEvent.VK_H && callState is CallState.Active -> {
+            toolbar.toggleHold()
+            event.consume()
+        }
+        ctrl && !shift && event.keyCode == KeyEvent.VK_L && callState is CallState.Idle -> {
+            toolbar.requestPhoneInputFocus()
+            event.consume()
         }
     }
 }

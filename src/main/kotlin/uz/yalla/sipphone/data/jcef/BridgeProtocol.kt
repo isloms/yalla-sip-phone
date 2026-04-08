@@ -1,4 +1,3 @@
-// src/main/kotlin/uz/yalla/sipphone/data/jcef/BridgeProtocol.kt
 package uz.yalla.sipphone.data.jcef
 
 import kotlinx.serialization.Serializable
@@ -9,8 +8,6 @@ val bridgeJson = Json {
     encodeDefaults = true
     ignoreUnknownKeys = true
 }
-
-// --- Events (Native → Web) ---
 
 object BridgeEvent {
     @Serializable
@@ -125,8 +122,6 @@ object BridgeEvent {
     )
 }
 
-// --- Command Results ---
-
 @Serializable
 data class CommandResult(
     val success: Boolean,
@@ -149,22 +144,18 @@ data class CommandError(
     val recoverable: Boolean,
 )
 
-// --- Command Request (from web) ---
-
 @Serializable
 data class BridgeCommand(
     val command: String,
     val params: Map<String, String> = emptyMap(),
 )
 
-// --- Init Payload ---
-
 @Serializable
 data class BridgeInitPayload(
     val version: String,
     val capabilities: List<String>,
     val agent: BridgeAgent,
-    val bufferedEvents: List<String>, // serialized event JSONs
+    val bufferedEvents: List<String>,
 )
 
 @Serializable
@@ -173,14 +164,12 @@ data class BridgeAgent(
     val name: String,
 )
 
-// --- State Snapshot ---
-
 @Serializable
 data class BridgeAccountState(
     val id: String,
     val name: String,
     val extension: String,
-    val status: String, // "connected" | "reconnecting" | "disconnected"
+    val status: String,
 )
 
 @Serializable
@@ -214,4 +203,3 @@ data class BridgeVersionInfo(
     val version: String,
     val capabilities: List<String>,
 )
-

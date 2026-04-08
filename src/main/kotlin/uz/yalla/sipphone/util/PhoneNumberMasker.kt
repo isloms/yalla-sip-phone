@@ -1,12 +1,9 @@
 package uz.yalla.sipphone.util
 
 object PhoneNumberMasker {
-    fun mask(number: String): String {
-        if (number.length <= 1) return "*".repeat(number.length)
-        if (number.length == 2) return "*${number.last()}"
-
-        val lastTwo = number.takeLast(2)
-        val masked = "*".repeat(number.length - 2) + lastTwo
-        return masked
+    fun mask(number: String): String = when {
+        number.length <= 1 -> "*".repeat(number.length)
+        number.length == 2 -> "*${number.last()}"
+        else -> "*".repeat(number.length - 2) + number.takeLast(2)
     }
 }

@@ -94,7 +94,6 @@ fun SettingsPanel(
                     .padding(tokens.spacingMd)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,

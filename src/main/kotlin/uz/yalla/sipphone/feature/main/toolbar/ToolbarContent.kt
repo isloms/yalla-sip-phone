@@ -25,7 +25,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
@@ -52,7 +51,6 @@ fun ToolbarContent(
     val accounts by component.accounts.collectAsState()
     val callDuration by component.callDuration.collectAsState()
 
-    // Phone input focus
     val phoneInputFocusRequester = remember { FocusRequester() }
     LaunchedEffect(focusRequest) {
         if (focusRequest > 0) {
@@ -60,11 +58,10 @@ fun ToolbarContent(
         }
     }
 
-    // Derive active call account ID
-    val activeCallAccountId = when (callState) {
-        is CallState.Ringing -> (callState as CallState.Ringing).accountId
-        is CallState.Active -> (callState as CallState.Active).accountId
-        is CallState.Ending -> (callState as CallState.Ending).accountId
+    val activeCallAccountId = when (val state = callState) {
+        is CallState.Ringing -> state.accountId
+        is CallState.Active -> state.accountId
+        is CallState.Ending -> state.accountId
         else -> null
     }
 
@@ -72,7 +69,7 @@ fun ToolbarContent(
         modifier = modifier
             .fillMaxWidth()
             .height(tokens.toolbarHeight)
-            .shadow(elevation = 2.dp, shape = RectangleShape)
+            .shadow(elevation = tokens.elevationLow, shape = RectangleShape)
             .background(colors.backgroundBase),
     ) {
         Row(
@@ -82,13 +79,12 @@ fun ToolbarContent(
                 .padding(horizontal = tokens.toolbarPaddingH),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Agent Status — now a simple DropdownMenu, no DialogWindow
             AgentStatusButton(
                 currentStatus = agentStatus,
                 onStatusSelected = component::setAgentStatus,
             )
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(tokens.toolbarZoneGap))
 
             PhoneField(
                 phoneNumber = phoneInput,
@@ -97,9 +93,9 @@ fun ToolbarContent(
                 focusRequester = phoneInputFocusRequester,
             )
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(tokens.toolbarZoneGap))
             VerticalDivider()
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(tokens.toolbarZoneGap))
 
             CallActions(
                 callState = callState,
@@ -112,7 +108,7 @@ fun ToolbarContent(
                 onToggleHold = component::toggleHold,
             )
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(tokens.toolbarZoneGap))
             CallTimer(duration = callDuration)
 
             Spacer(Modifier.weight(1f))
@@ -123,24 +119,23 @@ fun ToolbarContent(
                 onChipClick = component::onSipChipClick,
             )
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(tokens.toolbarZoneGap))
             VerticalDivider()
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(tokens.toolbarZoneGap))
 
-            // Settings toggle — opens/closes the right panel
             IconButton(
                 onClick = {
                     if (component.settingsVisible.value) component.closeSettings()
                     else component.openSettings()
                 },
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(tokens.iconButtonSize)
                     .pointerHoverIcon(PointerIcon.Hand),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(tokens.iconDefault),
                     tint = colors.iconSubtle,
                 )
             }

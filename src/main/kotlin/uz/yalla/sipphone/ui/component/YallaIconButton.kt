@@ -15,10 +15,6 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.Dp
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 
-/**
- * Standard icon button used throughout the toolbar.
- * Consistent sizing (36dp), pointer cursor, no minimum interactive size.
- */
 @Composable
 fun YallaIconButton(
     icon: ImageVector,

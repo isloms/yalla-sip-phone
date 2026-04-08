@@ -18,18 +18,6 @@ import kotlin.coroutines.CoroutineContext
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * Owns and manages the pjsua2 [Endpoint] SWIG object.
- *
- * Handles library lifecycle (create → init → transport → start → poll → destroy),
- * audio device enumeration, and the event-polling loop.
- *
- * Thread safety: all methods must be called on [pjDispatcher] (the pjsip event-loop thread).
- *
- * SWIG lifecycle: [destroy] must be called before the process exits.
- * The sequence is: [stopPolling] → [destroy]. Do NOT delete pjsua2 SWIG objects from outside
- * this class — ownership belongs here.
- */
 class PjsipEndpointManager(private val pjDispatcher: CoroutineContext) {
 
     lateinit var endpoint: Endpoint
@@ -103,16 +91,6 @@ class PjsipEndpointManager(private val pjDispatcher: CoroutineContext) {
 
     fun getCaptureDevMedia(): AudioMedia = endpoint.audDevManager().captureDevMedia
 
-    /**
-     * Destroys the pjsua2 endpoint and frees all associated native resources.
-     *
-     * WARNING: Must be called only after [stopPolling] returns. Calling [destroy] while the
-     * poll loop is running will crash the JVM. After this call the [endpoint] field is invalid
-     * and must not be accessed again.
-     *
-     * SWIG lifecycle note: [logWriter] must NOT be deleted before [endpoint.libDestroy] because
-     * pjsip writes shutdown logs through it. It is deleted here after libDestroy completes.
-     */
     fun destroy() {
         scope.cancel()
         try {

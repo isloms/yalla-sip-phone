@@ -57,7 +57,6 @@ fun createHttpClient(
                 tokenProvider.getToken()?.let { BearerTokens(it, "") }
             }
             sendWithoutRequest { request ->
-                // Send token proactively on ALL requests EXCEPT login
                 !request.url.encodedPath.contains("/auth/login")
             }
         }

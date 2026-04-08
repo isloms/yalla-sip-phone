@@ -23,22 +23,6 @@ import kotlin.random.Random
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * Production implementation of [SipAccountManager] that wraps [PjsipAccountManager]
- * and adds per-account reconnection with exponential backoff, state management via
- * [StateFlow], active call protection, and credential caching for reconnection.
- *
- * All pjsip operations are dispatched to [pjDispatcher] (the single pjsip event-loop thread).
- * State exposed via [accounts] can be collected from any thread.
- *
- * Key behaviors:
- * - [registerAll]: registers accounts sequentially with 500ms delay between each.
- *   Returns success if at least one account succeeds. Failed accounts get auto-reconnection.
- * - [connect]: uses cached credentials to re-register a specific account.
- * - [disconnect]: blocks if the account has an active call.
- * - Auth failures ([SipError.AuthFailed]) skip reconnection — credentials are wrong, retrying won't help.
- * - Exponential backoff: base 1s, max 30s, jitter 500ms.
- */
 class PjsipSipAccountManager(
     private val accountManager: PjsipAccountManager,
     private val callEngine: CallEngine,
@@ -47,16 +31,12 @@ class PjsipSipAccountManager(
 
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
 
-    /** Cached credentials per accountId for reconnection. */
     private val credentialCache = mutableMapOf<String, SipAccountInfo>()
 
-    /** Per-account reconnection jobs. */
     private val reconnectJobs = mutableMapOf<String, Job>()
 
-    /** Per-account reconnection attempt counters. */
     private val reconnectAttempts = mutableMapOf<String, Int>()
 
-    /** Master account list state. Thread-safe via StateFlow. */
     private val _accounts = MutableStateFlow<List<SipAccount>>(emptyList())
     override val accounts: StateFlow<List<SipAccount>> = _accounts.asStateFlow()
 
@@ -64,11 +44,6 @@ class PjsipSipAccountManager(
         accountManager.accountRegistrationListener = this
     }
 
-    /**
-     * Called by [PjsipAccountManager] on the pjsip thread when a per-account registration
-     * state changes. Maps pjsip [PjsipRegistrationState] to domain [SipAccountState] and
-     * triggers reconnection on failure.
-     */
     override fun onAccountRegistrationState(accountId: String, state: PjsipRegistrationState) {
         when (state) {
             is PjsipRegistrationState.Registered -> {
@@ -81,42 +56,31 @@ class PjsipSipAccountManager(
             is PjsipRegistrationState.Failed -> {
                 val error = state.error
                 if (error is SipError.AuthFailed) {
-                    // Auth failures are permanent — don't reconnect
                     cancelReconnect(accountId)
                     reconnectAttempts.remove(accountId)
                     updateAccountState(accountId, SipAccountState.Disconnected)
                     logger.warn { "[$accountId] Auth failed — skipping reconnection" }
                 } else {
-                    // Transient failure — schedule reconnection
                     updateAccountState(accountId, SipAccountState.Disconnected)
                     scheduleReconnect(accountId)
                 }
             }
 
-            is PjsipRegistrationState.Idle -> {
-                // Idle after explicit unregister — don't reconnect
-                // State is already handled by disconnect/unregister methods
-            }
-
-            is PjsipRegistrationState.Registering -> {
-                // Transient — no action needed
-            }
+            is PjsipRegistrationState.Idle -> {}
+            is PjsipRegistrationState.Registering -> {}
         }
     }
 
     override suspend fun registerAll(accounts: List<SipAccountInfo>): Result<Unit> {
-        val accountInfos = accounts
-        if (accountInfos.isEmpty()) {
+        if (accounts.isEmpty()) {
             return Result.failure(IllegalArgumentException("No accounts to register"))
         }
 
-        // Cache credentials for all accounts
-        for (info in accountInfos) {
+        for (info in accounts) {
             credentialCache[info.id] = info
         }
 
-        // Initialize account list with Disconnected state
-        _accounts.value = accountInfos.map { info ->
+        _accounts.value = accounts.map { info ->
             SipAccount(
                 id = info.id,
                 name = info.name,
@@ -128,7 +92,7 @@ class PjsipSipAccountManager(
         var successCount = 0
         var lastError: Throwable? = null
 
-        for ((index, info) in accountInfos.withIndex()) {
+        for ((index, info) in accounts.withIndex()) {
             if (index > 0) {
                 delay(REGISTER_DELAY_MS)
             }
@@ -142,15 +106,14 @@ class PjsipSipAccountManager(
             } else {
                 lastError = result.exceptionOrNull()
                 logger.warn { "[${info.id}] Registration call failed: ${lastError?.message}" }
-                // Failed accounts will get auto-reconnection via onAccountRegistrationState
             }
         }
 
         return if (successCount > 0) {
-            logger.info { "registerAll: $successCount/${accountInfos.size} accounts submitted successfully" }
+            logger.info { "registerAll: $successCount/${accounts.size} accounts submitted successfully" }
             Result.success(Unit)
         } else {
-            logger.error { "registerAll: all ${accountInfos.size} accounts failed" }
+            logger.error { "registerAll: all ${accounts.size} accounts failed" }
             Result.failure(lastError ?: IllegalStateException("All accounts failed to register"))
         }
     }
@@ -168,7 +131,6 @@ class PjsipSipAccountManager(
     }
 
     override suspend fun disconnect(accountId: String): Result<Unit> {
-        // Active call protection: can't disconnect account with active call
         val currentCallState = callEngine.callState.value
         val callAccountId = when (currentCallState) {
             is CallState.Ringing -> currentCallState.accountId
@@ -193,7 +155,6 @@ class PjsipSipAccountManager(
     }
 
     override suspend fun unregisterAll() {
-        // Cancel all reconnection jobs
         reconnectJobs.values.forEach { it.cancel() }
         reconnectJobs.clear()
         reconnectAttempts.clear()
@@ -202,24 +163,16 @@ class PjsipSipAccountManager(
             accountManager.unregisterAll()
         }
 
-        // Update all accounts to Disconnected
         _accounts.value = _accounts.value.map { it.copy(state = SipAccountState.Disconnected) }
         credentialCache.clear()
     }
 
-    /**
-     * Updates the [SipAccountState] for a specific account in the [_accounts] list.
-     */
     private fun updateAccountState(accountId: String, state: SipAccountState) {
         _accounts.value = _accounts.value.map { account ->
             if (account.id == accountId) account.copy(state = state) else account
         }
     }
 
-    /**
-     * Schedules exponential backoff reconnection for a specific account.
-     * No-op if a reconnection job is already active for this account.
-     */
     private fun scheduleReconnect(accountId: String) {
         if (reconnectJobs[accountId]?.isActive == true) return
 
@@ -245,12 +198,9 @@ class PjsipSipAccountManager(
                 }
 
                 if (result.isSuccess) {
-                    // Registration call succeeded (account created).
-                    // Actual result comes via onAccountRegistrationState callback.
                     break
                 }
 
-                // register() itself threw — bump attempt and loop
                 logger.warn { "[$accountId] Reconnect attempt $attempt failed: ${result.exceptionOrNull()?.message}" }
             }
         }

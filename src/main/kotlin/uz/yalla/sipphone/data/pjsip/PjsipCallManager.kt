@@ -23,19 +23,6 @@ interface AudioMediaProvider {
     fun getCaptureDevMedia(): org.pjsip.pjsua2.AudioMedia
 }
 
-/**
- * Manages the pjsua2 call lifecycle: outbound dialling, inbound acceptance, audio wiring,
- * mute/hold state, DTMF, and blind transfer.
- *
- * All public methods must be called on [pjDispatcher] (the pjsip event-loop thread).
- * State is exposed via [callState] and can be collected from any thread.
- *
- * Supports multi-account call routing: [makeCall] accepts an [accountId] to select which
- * SIP line to dial from. Incoming calls carry the [accountId] of the receiving account.
- *
- * SWIG lifecycle: call [destroy] before [PjsipEndpointManager.destroy]. The manager hangs up
- * any active call and deletes the underlying [PjsipCall] SWIG object during [destroy].
- */
 class PjsipCallManager(
     private val accountProvider: AccountProvider,
     private val audioMediaProvider: AudioMediaProvider,
@@ -69,10 +56,7 @@ class PjsipCallManager(
         }
     }
 
-    /**
-     * Applies mute/unmute by controlling capture media transmission to the call's audio media.
-     * CRITICAL: Do NOT call delete() on captureDevMedia — it is owned by the audio device manager.
-     */
+    // Do NOT call delete() on captureDevMedia — it is owned by the audio device manager
     private fun applyMuteState(call: PjsipCall, muted: Boolean) {
         val callInfo = call.getInfo()
         val mediaCount = callInfo.media.size
@@ -97,9 +81,6 @@ class PjsipCallManager(
         }
     }
 
-    /**
-     * Applies hold/resume via setHold/reinvite, updates state, and launches a safety timeout.
-     */
     private fun applyHoldState(call: PjsipCall, hold: Boolean, state: CallState.Active) {
         withCallOpParam { prm ->
             if (hold) {
@@ -110,18 +91,11 @@ class PjsipCallManager(
             }
         }
         _callState.value = state.copy(isOnHold = hold)
-        // pjsip call sent successfully — release the guard immediately.
-        // connectCallAudio() handles the actual media reconnection separately.
         holdInProgress = false
         holdTimeoutJob?.cancel()
         holdTimeoutJob = null
     }
 
-    /**
-     * Initiates an outbound call to [number] using the account identified by [accountId].
-     *
-     * If [accountId] is empty, the first connected account is used (backward compat).
-     */
     suspend fun makeCall(number: String, accountId: String = ""): Result<Unit> {
         if (currentCall != null) return Result.failure(IllegalStateException("Call already active"))
 
@@ -304,9 +278,6 @@ class PjsipCallManager(
         }
     }
 
-    /**
-     * Handles an incoming call on the account identified by [accountId].
-     */
     override fun onIncomingCall(accountId: String, callId: Int) {
         val acc = accountProvider.getAccount(accountId) ?: run {
             logger.warn { "Incoming call on unknown account $accountId — ignoring" }

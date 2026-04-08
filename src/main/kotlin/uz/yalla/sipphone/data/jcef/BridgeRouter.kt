@@ -248,7 +248,6 @@ class BridgeRouter(
         val callState = callEngine.callState.value
         val sipAccounts = sipAccountManager.accounts.value
 
-        // Build accounts list for bridge
         val accounts = sipAccounts.map { account ->
             BridgeAccountState(
                 id = account.id,
@@ -262,7 +261,6 @@ class BridgeRouter(
             )
         }
 
-        // Aggregate connection state: connected if ANY connected, reconnecting if any reconnecting, else disconnected
         val connectionState = when {
             sipAccounts.any { it.state is SipAccountState.Connected } -> "connected"
             sipAccounts.any { it.state is SipAccountState.Reconnecting } -> "reconnecting"
