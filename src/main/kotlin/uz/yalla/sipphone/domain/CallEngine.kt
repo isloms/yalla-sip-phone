@@ -20,7 +20,7 @@ interface CallEngine {
      * Returns [Result.failure] if there is already an active call, the engine is
      * not registered, or the underlying SIP stack rejects the request.
      */
-    suspend fun makeCall(number: String): Result<Unit>
+    suspend fun makeCall(number: String, accountId: String = ""): Result<Unit>
 
     /** Answers the current inbound ringing call. No-op if there is no inbound ringing call. */
     suspend fun answerCall()

@@ -113,7 +113,7 @@ class PjsipCallManager(
         holdTimeoutJob = null
     }
 
-    suspend fun makeCall(number: String): Result<Unit> {
+    suspend fun makeCall(number: String, accountId: String = ""): Result<Unit> {
         if (currentCall != null) return Result.failure(IllegalStateException("Call already active"))
         val acc = accountProvider.currentAccount
             ?: return Result.failure(IllegalStateException("Not registered"))

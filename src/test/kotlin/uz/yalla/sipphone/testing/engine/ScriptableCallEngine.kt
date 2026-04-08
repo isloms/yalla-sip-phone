@@ -38,7 +38,7 @@ class ScriptableCallEngine(
 
     // region Action recording
     sealed interface Action {
-        data class MakeCall(val number: String) : Action
+        data class MakeCall(val number: String, val accountId: String = "") : Action
         data object AnswerCall : Action
         data object HangupCall : Action
         data object ToggleMute : Action
@@ -58,8 +58,8 @@ class ScriptableCallEngine(
     // endregion
 
     // region CallEngine implementation
-    override suspend fun makeCall(number: String): Result<Unit> {
-        _actions += Action.MakeCall(number)
+    override suspend fun makeCall(number: String, accountId: String): Result<Unit> {
+        _actions += Action.MakeCall(number, accountId)
         return makeCallResult
     }
 

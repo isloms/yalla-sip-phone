@@ -24,8 +24,11 @@ class FakeCallEngine(
     var lastTransferDestination: String? = null
     var transferCallResult: Result<Unit> = Result.success(Unit)
 
-    override suspend fun makeCall(number: String): Result<Unit> {
+    var lastCallAccountId: String? = null
+
+    override suspend fun makeCall(number: String, accountId: String): Result<Unit> {
         lastCallNumber = number
+        lastCallAccountId = accountId
         return makeCallResult
     }
 

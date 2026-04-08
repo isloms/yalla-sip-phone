@@ -93,8 +93,8 @@ class PjsipEngine : SipStackLifecycle, RegistrationEngine, CallEngine {
     override val callState: StateFlow<CallState>
         get() = callManager.callState
 
-    override suspend fun makeCall(number: String): Result<Unit> =
-        withContext(pjDispatcher) { callManager.makeCall(number) }
+    override suspend fun makeCall(number: String, accountId: String): Result<Unit> =
+        withContext(pjDispatcher) { callManager.makeCall(number, accountId) }
 
     override suspend fun answerCall(): Unit =
         withContext(pjDispatcher) { callManager.answerCall() }
