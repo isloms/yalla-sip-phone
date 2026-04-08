@@ -1,55 +1,44 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
-import uz.yalla.sipphone.util.formatDuration
 
 @Composable
 fun ToolbarContent(
     component: ToolbarComponent,
     isDarkTheme: Boolean,
+    locale: String,
+    agentInfo: AgentInfo?,
     onThemeToggle: () -> Unit,
+    onLocaleChange: (String) -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -60,6 +49,9 @@ fun ToolbarContent(
     val agentStatus by component.agentStatus.collectAsState()
     val phoneInput by component.phoneInput.collectAsState()
     val focusRequest by component.phoneInputFocusRequest.collectAsState()
+    val accounts by component.accounts.collectAsState()
+    val callDuration by component.callDuration.collectAsState()
+    val settingsVisible by component.settingsVisible.collectAsState()
 
     // Phone input focus
     val phoneInputFocusRequester = remember { FocusRequester() }
@@ -69,33 +61,12 @@ fun ToolbarContent(
         }
     }
 
-    // Call timer — keyed by callId so hold/unhold/mute don't reset it
-    val activeCallId = (callState as? CallState.Active)?.callId
-    var callDuration by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(activeCallId) {
-        if (activeCallId != null) {
-            callDuration = 0
-            while (isActive) {
-                delay(1000)
-                callDuration++
-            }
-        } else {
-            callDuration = 0
-        }
-    }
-
-    // Ringing top border for incoming calls
-    val ringingBorderModifier = if (callState is CallState.Ringing && !(callState as CallState.Ringing).isOutbound) {
-        Modifier.drawBehind {
-            drawLine(
-                color = colors.callIncoming,
-                start = Offset.Zero,
-                end = Offset(size.width, 0f),
-                strokeWidth = 2.dp.toPx(),
-            )
-        }
-    } else {
-        Modifier
+    // Derive active call account ID
+    val activeCallAccountId = when (callState) {
+        is CallState.Ringing -> (callState as CallState.Ringing).accountId
+        is CallState.Active -> (callState as CallState.Active).accountId
+        is CallState.Ending -> (callState as CallState.Ending).accountId
+        else -> null
     }
 
     Box(
@@ -103,8 +74,7 @@ fun ToolbarContent(
             .fillMaxWidth()
             .height(tokens.toolbarHeight)
             .shadow(elevation = 2.dp, shape = RectangleShape)
-            .background(colors.backgroundSecondary)
-            .then(ringingBorderModifier),
+            .background(colors.backgroundBase),
     ) {
         Row(
             modifier = Modifier
@@ -113,52 +83,29 @@ fun ToolbarContent(
                 .padding(horizontal = tokens.toolbarPaddingH),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Zone A: Agent Status Dropdown
-            AgentStatusDropdown(
+            // Agent Status Button
+            AgentStatusButton(
                 currentStatus = agentStatus,
                 onStatusSelected = component::setAgentStatus,
             )
 
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
+            Spacer(Modifier.width(8.dp))
 
-            // Vertical divider between Zone A and Zone B
-            Box(
-                Modifier
-                    .width(tokens.dividerThickness)
-                    .height(tokens.dividerHeight)
-                    .background(colors.backgroundTertiary),
+            // Phone Field
+            PhoneField(
+                phoneNumber = phoneInput,
+                onValueChange = component::updatePhoneInput,
+                callState = callState,
+                focusRequester = phoneInputFocusRequester,
             )
 
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
+            // Vertical divider
+            Spacer(Modifier.width(8.dp))
+            VerticalDivider()
+            Spacer(Modifier.width(8.dp))
 
-            // Zone B: Phone input or call info (flexible width)
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                ZoneBContent(
-                    callState = callState,
-                    phoneInput = phoneInput,
-                    onPhoneInputChange = component::updatePhoneInput,
-                    callDuration = callDuration,
-                    phoneInputFocusRequester = phoneInputFocusRequester,
-                )
-            }
-
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-
-            // Vertical divider between Zone B and Zone C
-            Box(
-                Modifier
-                    .width(tokens.dividerThickness)
-                    .height(tokens.dividerHeight)
-                    .background(colors.backgroundTertiary),
-            )
-
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-
-            // Zone C: Call action buttons
-            CallControls(
+            // Call Actions
+            CallActions(
                 callState = callState,
                 phoneInputEmpty = phoneInput.isBlank(),
                 onCall = { component.makeCall(phoneInput) },
@@ -169,137 +116,64 @@ fun ToolbarContent(
                 onToggleHold = component::toggleHold,
             )
 
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
+            // Call Timer (only during active call)
+            Spacer(Modifier.width(8.dp))
+            CallTimer(duration = callDuration)
 
-            // Vertical divider between Zone C and Zone D
-            Box(
-                Modifier
-                    .width(tokens.dividerThickness)
-                    .height(tokens.dividerHeight)
-                    .background(colors.backgroundTertiary),
+            // Flexible spacer — pushes SIP chips to the right
+            Spacer(Modifier.weight(1f))
+
+            // SIP Chip Row
+            SipChipRow(
+                accounts = accounts,
+                activeCallAccountId = activeCallAccountId.takeIf { it?.isNotEmpty() == true },
+                onChipClick = component::onSipChipClick,
             )
 
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
+            // Vertical divider
+            Spacer(Modifier.width(8.dp))
+            VerticalDivider()
+            Spacer(Modifier.width(8.dp))
 
-            // Zone D: Settings gear
-            SettingsPopover(
-                isDarkTheme = isDarkTheme,
-                onThemeToggle = onThemeToggle,
-                onLogout = onLogout,
-            )
-
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-
-            // Zone E: Call quality indicator
-            CallQualityIndicator(callState = callState)
+            // Settings button
+            IconButton(
+                onClick = component::openSettings,
+                modifier = Modifier
+                    .size(36.dp)
+                    .pointerHoverIcon(PointerIcon.Hand),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = colors.iconSubtle,
+                )
+            }
         }
     }
+
+    // Settings Dialog (OS-level window)
+    SettingsDialog(
+        visible = settingsVisible,
+        isDarkTheme = isDarkTheme,
+        locale = locale,
+        agentInfo = agentInfo,
+        onThemeToggle = onThemeToggle,
+        onLocaleChange = onLocaleChange,
+        onLogout = onLogout,
+        onDismiss = component::closeSettings,
+    )
 }
 
 @Composable
-private fun ZoneBContent(
-    callState: CallState,
-    phoneInput: String,
-    onPhoneInputChange: (String) -> Unit,
-    callDuration: Long,
-    phoneInputFocusRequester: FocusRequester = FocusRequester(),
-) {
-    val tokens = LocalAppTokens.current
+private fun VerticalDivider() {
     val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
 
-    when (callState) {
-        is CallState.Idle -> {
-            var isFocused by remember { mutableStateOf(false) }
-
-            BasicTextField(
-                value = phoneInput,
-                onValueChange = onPhoneInputChange,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = colors.textBase,
-                    fontFamily = FontFamily.SansSerif,
-                ),
-                singleLine = true,
-                cursorBrush = if (isFocused) SolidColor(colors.brandPrimary) else SolidColor(Color.Transparent),
-                decorationBox = { innerTextField ->
-                    Box(
-                        Modifier
-                            .focusRequester(phoneInputFocusRequester)
-                            .fillMaxWidth()
-                            .background(
-                                if (isFocused) colors.backgroundBase else colors.backgroundBase.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(6.dp),
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = if (isFocused) colors.brandPrimary else colors.borderDisabled,
-                                shape = RoundedCornerShape(6.dp),
-                            )
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                    ) {
-                        if (phoneInput.isEmpty()) {
-                            Text(
-                                text = Strings.PLACEHOLDER_PHONE,
-                                color = colors.textSubtle.copy(alpha = 0.5f),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
-                        innerTextField()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { isFocused = it.isFocused },
-            )
-        }
-
-        is CallState.Ringing -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = callState.callerNumber,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.textBase,
-                )
-                if (callState.isOutbound) {
-                    Spacer(Modifier.width(tokens.spacingSm))
-                    Text(
-                        text = Strings.STATUS_RINGING,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.textSubtle,
-                    )
-                }
-            }
-        }
-
-        is CallState.Active -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = callState.remoteNumber,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.textBase,
-                )
-                Spacer(Modifier.width(tokens.spacingSm))
-                Text(
-                    text = formatDuration(callDuration),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                    ),
-                    color = if (callState.isOnHold) {
-                        colors.textSubtle
-                    } else {
-                        colors.textBase
-                    },
-                )
-            }
-        }
-
-        is CallState.Ending -> {
-            Text(
-                text = Strings.STATUS_ENDING_CALL,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.textSubtle,
-            )
-        }
-    }
+    Box(
+        Modifier
+            .width(tokens.dividerThickness)
+            .height(tokens.dividerHeight)
+            .background(colors.borderDisabled),
+    )
 }

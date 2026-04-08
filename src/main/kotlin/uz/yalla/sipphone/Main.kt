@@ -25,6 +25,7 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
+import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.data.auth.AuthEventBus
 import uz.yalla.sipphone.data.auth.LogoutOrchestrator
 import uz.yalla.sipphone.data.jcef.JcefManager
@@ -87,8 +88,11 @@ fun main() {
         )
     }
 
+    val appSettings = koin.get<AppSettings>()
+
     application {
         var isDarkTheme by remember { mutableStateOf(false) }
+        var locale by remember { mutableStateOf(appSettings.locale) }
 
         val childStack by rootComponent.childStack.subscribeAsState()
         val isMainScreen = childStack.active.instance is RootComponent.Child.Main
@@ -218,11 +222,16 @@ fun main() {
 
             LifecycleController(decomposeLifecycle, windowState)
 
-            YallaSipPhoneTheme(isDark = isDarkTheme) {
+            YallaSipPhoneTheme(isDark = isDarkTheme, locale = locale) {
                 RootContent(
                     root = rootComponent,
                     isDarkTheme = isDarkTheme,
+                    locale = locale,
                     onThemeToggle = { isDarkTheme = !isDarkTheme },
+                    onLocaleChange = { newLocale ->
+                        locale = newLocale
+                        appSettings.locale = newLocale
+                    },
                 )
             }
         }

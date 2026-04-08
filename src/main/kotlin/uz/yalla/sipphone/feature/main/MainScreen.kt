@@ -13,16 +13,21 @@ import uz.yalla.sipphone.ui.theme.LocalYallaColors
 fun MainScreen(
     component: MainComponent,
     isDarkTheme: Boolean,
+    locale: String,
     onThemeToggle: () -> Unit,
+    onLocaleChange: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(LocalYallaColors.current.backgroundBase)) {
         ToolbarContent(
             component = component.toolbar,
             isDarkTheme = isDarkTheme,
+            locale = locale,
+            agentInfo = component.agentInfo,
             onThemeToggle = {
                 onThemeToggle()
                 component.onThemeChanged(!isDarkTheme)
             },
+            onLocaleChange = onLocaleChange,
             onLogout = component::logout,
         )
         WebviewPanel(

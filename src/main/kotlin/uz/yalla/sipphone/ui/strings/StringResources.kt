@@ -35,6 +35,17 @@ interface StringResources {
     val settingsLogoutConfirm: String
     val settingsLogoutConfirmTitle: String
 
+    // Call Actions
+    val buttonCall: String
+    val buttonAnswer: String
+    val buttonReject: String
+    val buttonHangup: String
+    val buttonMute: String
+    val buttonUnmute: String
+    val buttonHold: String
+    val buttonResume: String
+    val placeholderPhone: String
+
     // General
     val appTitle: String
     val buttonConnect: String

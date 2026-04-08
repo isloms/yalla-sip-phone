@@ -13,15 +13,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,28 +30,63 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.yalla.sipphone.domain.AgentStatus
+import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-private fun parseHexColor(hex: String): Color {
-    val sanitized = hex.removePrefix("#")
-    val argb = sanitized.toLong(16) or 0xFF000000
-    return Color(argb.toInt())
+/**
+ * Display-level agent status — maps 5 internal statuses to 3 UI states.
+ */
+enum class DisplayAgentStatus {
+    ONLINE,  // READY
+    BUSY,    // AWAY, BREAK, WRAP_UP
+    OFFLINE, // OFFLINE
+}
+
+fun AgentStatus.toDisplayStatus(): DisplayAgentStatus = when (this) {
+    AgentStatus.READY -> DisplayAgentStatus.ONLINE
+    AgentStatus.AWAY, AgentStatus.BREAK, AgentStatus.WRAP_UP -> DisplayAgentStatus.BUSY
+    AgentStatus.OFFLINE -> DisplayAgentStatus.OFFLINE
 }
 
 /**
- * Agent status selector — expands inline to show status options with labels.
- * No popups or tooltips (they render behind JCEF SwingPanel).
+ * Maps display status back to internal AgentStatus for bridge communication.
+ * ONLINE → READY, BUSY → AWAY (default busy mapping), OFFLINE → OFFLINE.
+ */
+fun DisplayAgentStatus.toAgentStatus(): AgentStatus = when (this) {
+    DisplayAgentStatus.ONLINE -> AgentStatus.READY
+    DisplayAgentStatus.BUSY -> AgentStatus.AWAY
+    DisplayAgentStatus.OFFLINE -> AgentStatus.OFFLINE
+}
+
+/**
+ * Agent status button — 36dp icon button showing a colored status dot.
+ * On click, expands inline to show 3 status options (no Popup — avoids JCEF z-order issues).
  */
 @Composable
-fun AgentStatusDropdown(
+fun AgentStatusButton(
     currentStatus: AgentStatus,
     onStatusSelected: (AgentStatus) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tokens = LocalAppTokens.current
     val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    val strings = LocalStrings.current
     var expanded by remember { mutableStateOf(false) }
+
+    val displayStatus = currentStatus.toDisplayStatus()
+
+    fun dotColor(status: DisplayAgentStatus): Color = when (status) {
+        DisplayAgentStatus.ONLINE -> colors.buttonActive
+        DisplayAgentStatus.BUSY -> colors.pinkSun
+        DisplayAgentStatus.OFFLINE -> colors.textSubtle
+    }
+
+    fun label(status: DisplayAgentStatus): String = when (status) {
+        DisplayAgentStatus.ONLINE -> strings.agentStatusOnline
+        DisplayAgentStatus.BUSY -> strings.agentStatusBusy
+        DisplayAgentStatus.OFFLINE -> strings.agentStatusOffline
+    }
 
     AnimatedContent(
         targetState = expanded,
@@ -62,30 +95,32 @@ fun AgentStatusDropdown(
         label = "agent-status-toggle",
     ) { isExpanded ->
         if (isExpanded) {
-            // Expanded: inline row of status chips with labels
+            // Expanded: inline row of 3 status options
             Row(
                 modifier = Modifier
-                    .clip(tokens.shapeSmall)
-                    .background(colors.backgroundBase.copy(alpha = 0.5f))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.backgroundSecondary)
                     .padding(horizontal = tokens.spacingXs, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                AgentStatus.entries.forEach { status ->
-                    val statusColor = remember(status) { parseHexColor(status.colorHex) }
-                    val isSelected = status == currentStatus
+                DisplayAgentStatus.entries.forEach { status ->
+                    val isSelected = status == displayStatus
 
                     Row(
                         modifier = Modifier
                             .pointerHoverIcon(PointerIcon.Hand)
-                            .clip(tokens.shapeSmall)
-                            .heightIn(min = tokens.dropdownItemMinHeight)
+                            .clip(RoundedCornerShape(6.dp))
+                            .heightIn(min = 32.dp)
                             .then(
-                                if (isSelected) Modifier.background(statusColor.copy(alpha = 0.15f))
-                                else Modifier
+                                if (isSelected) {
+                                    Modifier.background(dotColor(status).copy(alpha = 0.15f))
+                                } else {
+                                    Modifier
+                                },
                             )
                             .clickable {
-                                onStatusSelected(status)
+                                onStatusSelected(status.toAgentStatus())
                                 expanded = false
                             }
                             .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -96,46 +131,33 @@ fun AgentStatusDropdown(
                             Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(statusColor),
+                                .background(dotColor(status)),
                         )
                         Text(
-                            text = status.displayName,
+                            text = label(status),
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) statusColor else colors.textSubtle,
+                            color = if (isSelected) dotColor(status) else colors.textSubtle,
                         )
                     }
                 }
             }
         } else {
-            // Collapsed: dot + name + arrow
-            Row(
+            // Collapsed: 36dp icon button with colored dot
+            Box(
                 modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.backgroundSecondary)
                     .pointerHoverIcon(PointerIcon.Hand)
-                    .clip(tokens.shapeSmall)
-                    .clickable { expanded = true }
-                    .padding(horizontal = tokens.spacingXs, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
+                    .clickable { expanded = true },
+                contentAlignment = Alignment.Center,
             ) {
-                val currentStatusColor = remember(currentStatus) { parseHexColor(currentStatus.colorHex) }
                 Box(
                     Modifier
-                        .size(tokens.indicatorDot)
+                        .size(10.dp)
                         .clip(CircleShape)
-                        .background(currentStatusColor),
-                )
-                Text(
-                    text = currentStatus.displayName,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = colors.textBase,
-                )
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = colors.textSubtle,
+                        .background(dotColor(displayStatus)),
                 )
             }
         }

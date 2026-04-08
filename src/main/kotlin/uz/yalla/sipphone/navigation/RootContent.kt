@@ -18,7 +18,9 @@ import uz.yalla.sipphone.ui.theme.LocalAppTokens
 fun RootContent(
     root: RootComponent,
     isDarkTheme: Boolean,
+    locale: String,
     onThemeToggle: () -> Unit,
+    onLocaleChange: (String) -> Unit,
 ) {
     val tokens = LocalAppTokens.current
     val childStack by root.childStack.subscribeAsState()
@@ -37,7 +39,9 @@ fun RootContent(
                 MainScreen(
                     component = instance.component,
                     isDarkTheme = isDarkTheme,
+                    locale = locale,
                     onThemeToggle = onThemeToggle,
+                    onLocaleChange = onLocaleChange,
                 )
         }
     }
