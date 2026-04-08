@@ -47,6 +47,12 @@ Main.kt
 │   │   ├── NativeLibraryLoader.kt   OS-specific native library loading
 │   │   └── ConnectionManagerImpl.kt Auto-reconnect with exponential backoff
 │   │
+│   ├── network/                     HTTP infrastructure
+│   │   ├── HttpClientFactory.kt     Ktor CIO client factory
+│   │   ├── ApiResponse.kt           Generic {status,code,message,result,errors} envelope
+│   │   ├── NetworkError.kt          Sealed: Unauthorized, ClientError, ServerError, NoConnection, ParseError
+│   │   └── SafeRequest.kt           safeRequest<T> inline reified — unified HTTP error handling
+│   │
 │   ├── jcef/                        Chromium embedded browser
 │   │   ├── JcefManager.kt           JCEF lifecycle (init, browser creation, shutdown)
 │   │   ├── BridgeRouter.kt          JS → Kotlin command dispatch (window.YallaSIP)
@@ -56,8 +62,13 @@ Main.kt
 │   │   └── BridgeAuditLog.kt        Command/event audit trail
 │   │
 │   ├── auth/
+│   │   ├── AuthApi.kt               Raw HTTP calls (login, me, logout)
+│   │   ├── AuthRepositoryImpl.kt    Login flow orchestration (login → token → me → SIP)
+│   │   ├── TokenProvider.kt         In-memory JWT storage
+│   │   ├── AuthEventBus.kt          Session expiry event bus
+│   │   ├── LogoutOrchestrator.kt    Full logout: SIP unregister → API logout → clear token
 │   │   ├── MockAuthRepository.kt    Hardcoded test credentials (dev only)
-│   │   └── LoginResponse.kt         Raw auth response → AuthResult mapper
+│   │   └── dto/                     API DTOs (LoginRequest, LoginResult, MeResult, SipConnection)
 │   │
 │   └── settings/
 │       └── AppSettings.kt           Persistent settings via multiplatform-settings
@@ -168,7 +179,8 @@ Koin modules are split by concern:
 | Module | Provides |
 |--------|----------|
 | `SipModule` | PjsipEngine (as SipStackLifecycle, RegistrationEngine, CallEngine), ConnectionManager |
-| `AuthModule` | AuthRepository |
+| `NetworkModule` | HttpClient (Ktor CIO), TokenProvider, AuthEventBus |
+| `AuthModule` | AuthApi, AuthRepository (AuthRepositoryImpl), LogoutOrchestrator |
 | `WebviewModule` | JcefManager, BridgeRouter, BridgeEventEmitter |
 | `SettingsModule` | AppSettings |
 | `FeatureModule` | ComponentFactory |

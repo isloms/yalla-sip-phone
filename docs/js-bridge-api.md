@@ -209,6 +209,20 @@ await YallaSIP.setAgentStatus('away');
 
 Valid statuses: `"ready"`, `"away"`, `"break"`, `"wrap_up"`, `"offline"`.
 
+### `requestLogout()`
+
+Request the native app to perform a full logout. Used when the frontend detects
+that the session token has been invalidated (e.g., another operator logged in
+with the same PIN).
+
+```javascript
+const result = await YallaSIP.requestLogout();
+// Success: { success: true, data: null }
+```
+
+The native app will: unregister from SIP server, call the backend logout API,
+clear the token, and navigate to the login screen.
+
 ---
 
 ## Queries Reference

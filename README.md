@@ -82,12 +82,13 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 - Native packaging (DMG, MSI, DEB)
 - Material 3 UI with dark/light themes
 - Keyboard shortcuts (Space to answer, Ctrl+L for phone input)
+- Real backend authentication (PIN login → JWT → auto SIP registration)
+- Session expiry handling (HTTP 401 + JS bridge requestLogout)
 
 ### Not Yet Implemented
 
 | Feature | Priority | Notes |
 |---------|----------|-------|
-| Real backend auth | P0 | Blocked — backend needs to add SIP config to `/auth/login` |
 | Audio device selection | P0 | |
 | TLS/SRTP | P0 | Signaling + media encryption |
 | Auto-answer | P1 | Configurable for Ready agents |
@@ -103,11 +104,11 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 
 | Metric | Count |
 |--------|-------|
-| Source files | 62 |
-| Test files | 28 |
+| Source files | ~75 |
+| Test files | ~23 |
 | Source lines | ~5,400 |
 | Test lines | ~3,600 |
-| Test methods | 133 |
+| Test methods | ~149 |
 
 ## Platform Support
 
@@ -126,7 +127,7 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 | [JS Bridge API](docs/js-bridge-api.md) | Frontend integration guide for dispatcher panel |
 | [Testing](docs/testing.md) | Test framework, demo mode, writing tests |
 | [Windows Build](docs/windows-build.md) | Windows MSI build guide with pjsip compilation |
-| [Backend Auth](docs/planned/backend-auth.md) | Real auth integration plan (blocked) |
+| [Backend Auth Spec](docs/superpowers/specs/2026-04-08-backend-integration-design.md) | Backend integration design spec |
 | [Auto-Update](docs/planned/auto-update.md) | Auto-update mechanism design |
 
 ## License
