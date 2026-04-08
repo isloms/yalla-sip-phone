@@ -143,17 +143,25 @@ class RootComponentTest {
     }
 
     @Test
-    fun `navigates back to Login on logout from Main`() {
+    fun `navigates back to Login on explicit logout`() {
         val root = createRoot()
-        // Navigate to Main
         val loginChild = root.childStack.value.active.instance as RootComponent.Child.Login
         loginChild.component.manualConnect("192.168.0.22", 5060, "102", "pass")
         assertIs<RootComponent.Child.Main>(root.childStack.value.active.instance)
 
-        // Simulate all accounts disconnected -> auto-logout triggers
+        val mainChild = root.childStack.value.active.instance as RootComponent.Child.Main
+        mainChild.component.logout()
+    }
+
+    @Test
+    fun `stays on Main when SIP disconnects`() {
+        val root = createRoot()
+        val loginChild = root.childStack.value.active.instance as RootComponent.Child.Login
+        loginChild.component.manualConnect("192.168.0.22", 5060, "102", "pass")
+        assertIs<RootComponent.Child.Main>(root.childStack.value.active.instance)
+
         val accountId = fakeSipAccountManager.accounts.value.firstOrNull()?.id ?: "102@192.168.0.22"
         fakeSipAccountManager.simulateAccountState(accountId, SipAccountState.Disconnected)
-        val activeChild = root.childStack.value.active.instance
-        assertIs<RootComponent.Child.Login>(activeChild)
+        assertIs<RootComponent.Child.Main>(root.childStack.value.active.instance)
     }
 }
