@@ -5,9 +5,13 @@ import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.navigate
-import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.pushNew
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import uz.yalla.sipphone.data.auth.AuthEvent
+import uz.yalla.sipphone.data.auth.AuthEventBus
+import uz.yalla.sipphone.data.auth.LogoutOrchestrator
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.feature.login.LoginComponent
 import uz.yalla.sipphone.feature.main.MainComponent
@@ -15,11 +19,14 @@ import uz.yalla.sipphone.feature.main.MainComponent
 class RootComponent(
     componentContext: ComponentContext,
     private val factory: ComponentFactory,
+    private val authEventBus: AuthEventBus,
+    private val logoutOrchestrator: LogoutOrchestrator,
 ) : ComponentContext by componentContext {
 
     private val navigation = StackNavigation<Screen>()
     private var currentAuthResult: AuthResult? = null
     private var loginSessionCounter = 0
+    private val scope = coroutineScope()
 
     val childStack: Value<ChildStack<Screen, Child>> = childStack(
         source = navigation,
@@ -28,6 +35,20 @@ class RootComponent(
         handleBackButton = false,
         childFactory = ::createChild,
     )
+
+    init {
+        scope.launch {
+            authEventBus.events.collect { event ->
+                when (event) {
+                    AuthEvent.SessionExpired -> {
+                        logoutOrchestrator.logout()
+                        currentAuthResult = null
+                        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+                    }
+                }
+            }
+        }
+    }
 
     private fun createChild(screen: Screen, context: ComponentContext): Child =
         when (screen) {

@@ -25,6 +25,8 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
+import uz.yalla.sipphone.data.auth.AuthEventBus
+import uz.yalla.sipphone.data.auth.LogoutOrchestrator
 import uz.yalla.sipphone.data.jcef.JcefManager
 import uz.yalla.sipphone.di.appModules
 import uz.yalla.sipphone.domain.CallState
@@ -74,10 +76,14 @@ fun main() {
 
     val decomposeLifecycle = LifecycleRegistry()
     val factory: ComponentFactory = koin.get()
+    val authEventBus: AuthEventBus = koin.get()
+    val logoutOrchestrator: LogoutOrchestrator = koin.get()
     val rootComponent = runOnUiThread {
         RootComponent(
             componentContext = DefaultComponentContext(lifecycle = decomposeLifecycle),
             factory = factory,
+            authEventBus = authEventBus,
+            logoutOrchestrator = logoutOrchestrator,
         )
     }
 

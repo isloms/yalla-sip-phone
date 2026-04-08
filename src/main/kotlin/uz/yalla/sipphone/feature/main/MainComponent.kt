@@ -38,7 +38,10 @@ class MainComponent(
         registrationEngine = registrationEngine,
     )
 
-    val dispatcherUrl: String = authResult.dispatcherUrl
+    val dispatcherUrl: String = if (authResult.token.isNotEmpty())
+        "${authResult.dispatcherUrl}?token=${authResult.token}"
+    else
+        authResult.dispatcherUrl
     val agentInfo: AgentInfo = authResult.agent
 
     private val scope = coroutineScope()
@@ -62,6 +65,7 @@ class MainComponent(
                 agentStatusProvider = { toolbar.agentStatus.value },
                 onAgentStatusChange = { toolbar.setAgentStatus(it) },
                 onReady = eventEmitter::completeHandshake,
+                onRequestLogout = { onLogout() },
             )
             this.bridgeRouter = bridgeRouter
 

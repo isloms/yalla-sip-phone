@@ -34,6 +34,7 @@ class BridgeRouter(
     private val agentStatusProvider: () -> AgentStatus,
     private val onAgentStatusChange: (AgentStatus) -> Unit,
     private val onReady: () -> String,
+    private val onRequestLogout: () -> Unit = {},
 ) {
     private var messageRouter: CefMessageRouter? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -107,6 +108,11 @@ class BridgeRouter(
             "setAgentStatus" -> handleSetAgentStatus(cmd.params)
             "getState" -> handleGetState()
             "getVersion" -> handleGetVersion()
+            "requestLogout" -> {
+                logger.info { "Frontend requested logout (token likely invalidated by another session)" }
+                scope.launch { onRequestLogout() }
+                CommandResult.success(null)
+            }
             else -> CommandResult.error("INTERNAL_ERROR", "Unknown command: ${cmd.command}", false)
         }
     }
