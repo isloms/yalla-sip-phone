@@ -43,6 +43,15 @@ dependencies {
     // Settings persistence
     implementation("com.russhwolf:multiplatform-settings-no-arg:1.3.0")
 
+    // HTTP client
+    val ktorVersion = "3.1.2"
+    implementation("io.ktor:ktor-client-core:$ktorVersion")
+    implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+    implementation("io.ktor:ktor-client-auth:$ktorVersion")
+    implementation("io.ktor:ktor-client-logging:$ktorVersion")
+
     // JCEF — Chromium embedded browser (auto-downloads native binaries)
     implementation("me.friwi:jcefmaven:122.1.10")
 
@@ -54,6 +63,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
     testImplementation(compose.desktop.uiTestJUnit4)
     testImplementation("app.cash.turbine:turbine:1.2.1")
+    testImplementation("io.ktor:ktor-client-mock:3.1.2")
 }
 
 // Dev mode pjsip path (compose.desktop.application.jvmArgs handles --add-opens)
