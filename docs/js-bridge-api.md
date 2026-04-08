@@ -1,7 +1,7 @@
 # YallaSIP Bridge API — Frontend Integration Guide
 
-**Version**: 1.1.0
-**Last updated**: 2026-04-06
+**Version**: 1.2.0
+**Last updated**: 2026-04-08
 **Audience**: Frontend developers integrating with Yalla SIP Phone desktop app
 
 ---
@@ -254,7 +254,15 @@ Response:
     isMuted: boolean,
     isOnHold: boolean,
     duration: number
-  }
+  },
+  accounts: [
+    {
+      id: string,        // e.g. "1001@sip.yalla.uz"
+      name: string,      // e.g. "Operator-1"
+      extension: string, // e.g. "1001"
+      status: "connected" | "reconnecting" | "disconnected"
+    }
+  ]
 }
 ```
 
@@ -264,7 +272,7 @@ Get bridge API version and available capabilities.
 
 ```javascript
 const info = await YallaSIP.getVersion();
-// { version: "1.1.0", capabilities: ["call", "agentStatus", "callQuality", "dtmf", "transfer"] }
+// { version: "1.2.0", capabilities: ["call", "agentStatus", "callQuality", "dtmf", "transfer", "multiSip"] }
 ```
 
 Check capabilities before using optional features:
@@ -298,7 +306,8 @@ All events include `seq` (monotonic sequence number) and `timestamp` (epoch ms).
 | Event | When | Key fields |
 |-------|------|------------|
 | `agentStatusChanged` | Status changed (toolbar or API) | `status`, `previousStatus` |
-| `connectionChanged` | SIP connection state changed | `state`, `attempt` |
+| `connectionChanged` | SIP connection state changed | `state`, `attempt`, `accountId` |
+| `accountStatusChanged` | Individual SIP account state changed | `accountId`, `name`, `status` |
 | `callQualityUpdate` | Every 5s during active call | `callId`, `quality: "excellent"\|"good"\|"fair"\|"poor"` |
 | `themeChanged` | Dark/light mode toggled | `theme: "light"\|"dark"` |
 | `error` | Global error | `code`, `message`, `severity` |
@@ -319,6 +328,17 @@ YallaSIP.on('callEnded', (data) => {
 YallaSIP.on('agentStatusChanged', (data) => {
   // data = { status: "away", previousStatus: "ready", seq: 3, timestamp: ... }
   syncStatusToBackend(data.status);
+});
+
+YallaSIP.on('accountStatusChanged', (data) => {
+  // data = { accountId: "1001@sip.yalla.uz", name: "Operator-1", status: "connected", seq: 4, timestamp: ... }
+  updateAccountBadge(data.accountId, data.status);
+});
+
+YallaSIP.on('connectionChanged', (data) => {
+  // data = { state: "disconnected", attempt: 0, accountId: "1001@sip.yalla.uz", seq: 5, timestamp: ... }
+  // accountId may be empty for global connection events
+  handleConnectionChange(data.state, data.accountId);
 });
 ```
 
@@ -370,6 +390,7 @@ export function useYallaSIP() {
   const [connection, setConnection] = useState('disconnected');
   const [agentStatus, setAgentStatus] = useState('ready');
   const [call, setCall] = useState<CallInfo | null>(null);
+  const [accounts, setAccounts] = useState<Array<{ id: string; name: string; extension: string; status: string }>>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -393,6 +414,7 @@ export function useYallaSIP() {
       setConnection(state.connection.state);
       setAgentStatus(state.agentStatus);
       if (state.call) setCall(state.call);
+      if (state.accounts) setAccounts(state.accounts);
 
       // Events
       unsubs.push(bridge.current.on('incomingCall', (d: any) => {
@@ -419,6 +441,9 @@ export function useYallaSIP() {
       unsubs.push(bridge.current.on('agentStatusChanged', (d: any) => {
         if (mounted) setAgentStatus(d.status);
       }));
+      unsubs.push(bridge.current.on('accountStatusChanged', (d: any) => {
+        if (mounted) setAccounts(prev => prev.map(a => a.id === d.accountId ? { ...a, status: d.status } : a));
+      }));
     }
 
     init();
@@ -426,7 +451,7 @@ export function useYallaSIP() {
   }, []);
 
   return {
-    ready, agentName, connection, agentStatus, call,
+    ready, agentName, connection, agentStatus, call, accounts,
     makeCall: useCallback((n: string) => bridge.current?.makeCall(n), []),
     hangup: useCallback((id: string) => bridge.current?.hangup(id), []),
     answer: useCallback((id: string) => bridge.current?.answer(id), []),
@@ -574,7 +599,7 @@ export function createMockBridge() {
 
   return {
     ready: async () => ({ success: true, data: {
-      version: '1.1.0', capabilities: ['call', 'agentStatus', 'dtmf', 'transfer'],
+      version: '1.2.0', capabilities: ['call', 'agentStatus', 'dtmf', 'transfer', 'multiSip'],
       agent: { id: 'mock', name: 'Test Operator' }, bufferedEvents: [],
     }}),
     on: (event: string, fn: Function) => {
@@ -591,8 +616,11 @@ export function createMockBridge() {
     sendDtmf: async () => ({ success: true, data: null }),
     transferCall: async (_: string, d: string) => ({ success: true, data: { destination: d } }),
     setAgentStatus: async (s: string) => ({ success: true, data: { status: s } }),
-    getState: async () => ({ connection: { state: 'connected', attempt: 0 }, agentStatus: 'ready', call: null }),
-    getVersion: async () => ({ version: '1.1.0', capabilities: ['call', 'agentStatus', 'dtmf', 'transfer'] }),
+    getState: async () => ({
+      connection: { state: 'connected', attempt: 0 }, agentStatus: 'ready', call: null,
+      accounts: [{ id: '1001@sip.mock', name: 'Test-1', extension: '1001', status: 'connected' }],
+    }),
+    getVersion: async () => ({ version: '1.2.0', capabilities: ['call', 'agentStatus', 'dtmf', 'transfer', 'multiSip'] }),
     // Test helper — fire events manually
     simulate: (event: string, data: any) => listeners[event]?.forEach(fn => fn(data)),
   };
