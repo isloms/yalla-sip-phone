@@ -44,6 +44,8 @@ private val logger = KotlinLogging.logger {}
 fun main() {
     // Enable Compose rendering above heavyweight SwingPanel (JCEF)
     System.setProperty("compose.interop.blending", "true")
+    // Make Compose popups/tooltips use OS-level windows (renders above JCEF)
+    System.setProperty("compose.layers.type", "WINDOW")
 
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         logger.error(throwable) { "Uncaught exception on ${thread.name}" }
