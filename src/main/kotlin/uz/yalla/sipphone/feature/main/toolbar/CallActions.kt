@@ -1,9 +1,6 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -25,12 +22,8 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -77,82 +70,63 @@ fun CallActions(
         ) {
             when (callState) {
                 is CallState.Idle -> {
-                    // 3 disabled buttons at 40% opacity
-                    Row(
-                        modifier = Modifier.alpha(0.4f),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    val disabledColors = IconButtonDefaults.iconButtonColors(
+                        containerColor = colors.buttonDisabled,
+                        contentColor = colors.iconDisabled,
+                        disabledContainerColor = colors.buttonDisabled,
+                        disabledContentColor = colors.iconDisabled,
+                    )
+                    // Call button — enabled only when phone input has text
+                    IconButton(
+                        onClick = onCall,
+                        enabled = !phoneInputEmpty,
+                        modifier = Modifier.size(ButtonSize),
+                        colors = disabledColors,
                     ) {
-                        // Call button
-                        IconButton(
-                            onClick = onCall,
-                            enabled = !phoneInputEmpty,
-                            modifier = Modifier
-                                .size(ButtonSize)
-                                .background(colors.buttonDisabled, ButtonShape),
-                        ) {
-                            Icon(
-                                Icons.Filled.Call,
-                                contentDescription = strings.buttonCall,
-                                modifier = Modifier.size(IconSize),
-                                tint = colors.iconDisabled,
-                            )
-                        }
-                        // Mute button
-                        IconButton(
-                            onClick = {},
-                            enabled = false,
-                            modifier = Modifier
-                                .size(ButtonSize)
-                                .background(colors.buttonDisabled, ButtonShape),
-                        ) {
-                            Icon(
-                                Icons.Filled.Mic,
-                                contentDescription = strings.buttonMute,
-                                modifier = Modifier.size(IconSize),
-                                tint = colors.iconDisabled,
-                            )
-                        }
-                        // Hold button
-                        IconButton(
-                            onClick = {},
-                            enabled = false,
-                            modifier = Modifier
-                                .size(ButtonSize)
-                                .background(colors.buttonDisabled, ButtonShape),
-                        ) {
-                            Icon(
-                                Icons.Filled.Pause,
-                                contentDescription = strings.buttonHold,
-                                modifier = Modifier.size(IconSize),
-                                tint = colors.iconDisabled,
-                            )
-                        }
+                        Icon(
+                            Icons.Filled.Call,
+                            contentDescription = strings.buttonCall,
+                            modifier = Modifier.size(IconSize),
+                        )
+                    }
+                    // Mute button (disabled)
+                    IconButton(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.size(ButtonSize),
+                        colors = disabledColors,
+                    ) {
+                        Icon(
+                            Icons.Filled.Mic,
+                            contentDescription = strings.buttonMute,
+                            modifier = Modifier.size(IconSize),
+                        )
+                    }
+                    // Hold button (disabled)
+                    IconButton(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.size(ButtonSize),
+                        colors = disabledColors,
+                    ) {
+                        Icon(
+                            Icons.Filled.Pause,
+                            contentDescription = strings.buttonHold,
+                            modifier = Modifier.size(IconSize),
+                        )
                     }
                 }
 
                 is CallState.Ringing -> {
                     if (!callState.isOutbound) {
-                        // Answer button — brand bg with glow shadow
-                        val answerInteraction = remember { MutableInteractionSource() }
-                        val answerHovered by answerInteraction.collectIsHoveredAsState()
+                        // Answer button — brand bg
                         IconButton(
                             onClick = onAnswer,
                             modifier = Modifier
                                 .size(ButtonSize)
-                                .hoverable(answerInteraction)
-                                .pointerHoverIcon(PointerIcon.Hand)
-                                .shadow(
-                                    elevation = if (answerHovered) 8.dp else 4.dp,
-                                    shape = ButtonShape,
-                                    ambientColor = colors.buttonActive.copy(alpha = 0.4f),
-                                    spotColor = colors.buttonActive.copy(alpha = 0.4f),
-                                )
-                                .background(
-                                    if (answerHovered) colors.buttonActive.copy(alpha = 0.85f)
-                                    else colors.buttonActive,
-                                    ButtonShape,
-                                ),
-                            colors = IconButtonDefaults.iconButtonColors(
+                                .pointerHoverIcon(PointerIcon.Hand),
+                                colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = colors.buttonActive,
                                 contentColor = Color.White,
                             ),
                         ) {
@@ -164,19 +138,13 @@ fun CallActions(
                         }
 
                         // Reject button — red bg
-                        val rejectInteraction = remember { MutableInteractionSource() }
-                        val rejectHovered by rejectInteraction.collectIsHoveredAsState()
                         IconButton(
                             onClick = onReject,
                             modifier = Modifier
                                 .size(ButtonSize)
-                                .hoverable(rejectInteraction)
-                                .pointerHoverIcon(PointerIcon.Hand)
-                                .background(
-                                    if (rejectHovered) colors.iconRed.copy(alpha = 0.85f) else colors.iconRed,
-                                    ButtonShape,
-                                ),
-                            colors = IconButtonDefaults.iconButtonColors(
+                                .pointerHoverIcon(PointerIcon.Hand),
+                                colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = colors.iconRed,
                                 contentColor = Color.White,
                             ),
                         ) {
@@ -187,7 +155,7 @@ fun CallActions(
                             )
                         }
 
-                        // "Qo'ng'iroq..." label — brand tint surface
+                        // "Qo'ng'iroq..." label
                         Text(
                             text = strings.sipRinging,
                             fontSize = 12.sp,
@@ -200,20 +168,14 @@ fun CallActions(
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     } else {
-                        // Outbound ringing — cancel button (red bg)
-                        val cancelInteraction = remember { MutableInteractionSource() }
-                        val cancelHovered by cancelInteraction.collectIsHoveredAsState()
+                        // Outbound ringing — cancel button
                         IconButton(
                             onClick = onHangup,
                             modifier = Modifier
                                 .size(ButtonSize)
-                                .hoverable(cancelInteraction)
-                                .pointerHoverIcon(PointerIcon.Hand)
-                                .background(
-                                    if (cancelHovered) colors.iconRed.copy(alpha = 0.85f) else colors.iconRed,
-                                    ButtonShape,
-                                ),
-                            colors = IconButtonDefaults.iconButtonColors(
+                                .pointerHoverIcon(PointerIcon.Hand),
+                                colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = colors.iconRed,
                                 contentColor = Color.White,
                             ),
                         ) {
@@ -240,19 +202,13 @@ fun CallActions(
 
                 is CallState.Active -> {
                     // Hangup — red bg
-                    val endInteraction = remember { MutableInteractionSource() }
-                    val endHovered by endInteraction.collectIsHoveredAsState()
                     IconButton(
                         onClick = onHangup,
                         modifier = Modifier
                             .size(ButtonSize)
-                            .hoverable(endInteraction)
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .background(
-                                if (endHovered) colors.iconRed.copy(alpha = 0.85f) else colors.iconRed,
-                                ButtonShape,
-                            ),
+                            .pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = colors.iconRed,
                             contentColor = Color.White,
                         ),
                     ) {
@@ -264,23 +220,13 @@ fun CallActions(
                     }
 
                     // Mute toggle
-                    val muteInteraction = remember { MutableInteractionSource() }
-                    val muteHovered by muteInteraction.collectIsHoveredAsState()
                     IconButton(
                         onClick = onToggleMute,
                         modifier = Modifier
                             .size(ButtonSize)
-                            .hoverable(muteInteraction)
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .background(
-                                when {
-                                    callState.isMuted -> colors.buttonActive.copy(alpha = 0.15f)
-                                    muteHovered -> colors.backgroundSecondary
-                                    else -> Color.Transparent
-                                },
-                                ButtonShape,
-                            ),
+                            .pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = if (callState.isMuted) colors.buttonActive.copy(alpha = 0.15f) else colors.backgroundSecondary,
                             contentColor = if (callState.isMuted) colors.buttonActive else colors.iconSubtle,
                         ),
                     ) {
@@ -292,23 +238,13 @@ fun CallActions(
                     }
 
                     // Hold toggle
-                    val holdInteraction = remember { MutableInteractionSource() }
-                    val holdHovered by holdInteraction.collectIsHoveredAsState()
                     IconButton(
                         onClick = onToggleHold,
                         modifier = Modifier
                             .size(ButtonSize)
-                            .hoverable(holdInteraction)
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .background(
-                                when {
-                                    callState.isOnHold -> colors.buttonActive.copy(alpha = 0.15f)
-                                    holdHovered -> colors.backgroundSecondary
-                                    else -> Color.Transparent
-                                },
-                                ButtonShape,
-                            ),
+                            .pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = if (callState.isOnHold) colors.buttonActive.copy(alpha = 0.15f) else colors.backgroundSecondary,
                             contentColor = if (callState.isOnHold) colors.buttonActive else colors.iconSubtle,
                         ),
                     ) {
