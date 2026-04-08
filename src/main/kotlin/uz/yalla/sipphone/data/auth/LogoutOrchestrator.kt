@@ -21,15 +21,17 @@ class LogoutOrchestrator(
         logoutInProgress = true
         logger.info { "Logout sequence starting..." }
 
-        // 1. Clear token FIRST — prevents 401 → AuthEventBus → re-entry loop
+        // 1. Call server logout BEFORE clearing token — invalidates session on server
+        runCatching { authApi.logout() }
+            .onFailure { logger.warn { "Server logout failed: ${it.message}" } }
+
+        // 2. Clear token locally
         tokenProvider.clearToken()
 
-        // 2. Unregister all SIP accounts
+        // 3. Unregister all SIP accounts
         runCatching { sipAccountManager.unregisterAll() }
             .onFailure { logger.warn { "SIP unregisterAll failed: ${it.message}" } }
 
-        // 3. Notify backend (best-effort, token already cleared so this will likely 401)
-        // Skip if token is gone — no point sending an unauthenticated logout request
         logger.info { "Logout sequence complete" }
     }
 
