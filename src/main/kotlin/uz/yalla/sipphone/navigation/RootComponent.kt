@@ -44,6 +44,7 @@ class RootComponent(
                         logoutOrchestrator.logout()
                         currentAuthResult = null
                         navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+                        logoutOrchestrator.reset()
                     }
                 }
             }
@@ -72,6 +73,7 @@ class RootComponent(
                     factory.createMain(context, auth) {
                         currentAuthResult = null
                         navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+                        logoutOrchestrator.reset()
                     },
                 )
             }

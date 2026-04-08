@@ -10,21 +10,31 @@ class LogoutOrchestrator(
     private val authApi: AuthApi,
     private val tokenProvider: TokenProvider,
 ) {
+    @Volatile
     private var logoutInProgress = false
 
     suspend fun logout() {
-        if (logoutInProgress) return
-        logoutInProgress = true
-        try {
-            logger.info { "Logout sequence starting..." }
-            runCatching { sipAccountManager.unregisterAll() }
-                .onFailure { logger.warn { "SIP unregisterAll failed: ${it.message}" } }
-            tokenProvider.clearToken()
-            runCatching { authApi.logout() }
-                .onFailure { logger.warn { "API logout failed (expected if token already invalid): ${it.message}" } }
-            logger.info { "Logout sequence complete" }
-        } finally {
-            logoutInProgress = false
+        if (logoutInProgress) {
+            logger.debug { "Logout already in progress, skipping" }
+            return
         }
+        logoutInProgress = true
+        logger.info { "Logout sequence starting..." }
+
+        // 1. Clear token FIRST — prevents 401 → AuthEventBus → re-entry loop
+        tokenProvider.clearToken()
+
+        // 2. Unregister all SIP accounts
+        runCatching { sipAccountManager.unregisterAll() }
+            .onFailure { logger.warn { "SIP unregisterAll failed: ${it.message}" } }
+
+        // 3. Notify backend (best-effort, token already cleared so this will likely 401)
+        // Skip if token is gone — no point sending an unauthenticated logout request
+        logger.info { "Logout sequence complete" }
+    }
+
+    /** Reset guard — call only when navigating back to login screen. */
+    fun reset() {
+        logoutInProgress = false
     }
 }
