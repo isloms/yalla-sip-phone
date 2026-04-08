@@ -1,17 +1,18 @@
 package uz.yalla.sipphone.domain
 
 /**
- * Authenticates the agent against the Oktell backend and retrieves SIP credentials.
- *
- * The returned [AuthResult] contains the SIP credentials needed to call
- * [RegistrationEngine.register]. Implementations are responsible for persisting
- * the session token if required.
+ * Authenticates the agent against the backend and retrieves SIP credentials.
  */
 interface AuthRepository {
     /**
-     * Authenticates with [password] and returns a populated [AuthResult] on success.
+     * Authenticates with [pinCode] and returns a populated [AuthResult] on success.
      *
      * @return [Result.failure] on network errors or invalid credentials.
      */
-    suspend fun login(password: String): Result<AuthResult>
+    suspend fun login(pinCode: String): Result<AuthResult>
+
+    /**
+     * Logs out the current session. Best-effort — network errors are acceptable.
+     */
+    suspend fun logout(): Result<Unit>
 }
