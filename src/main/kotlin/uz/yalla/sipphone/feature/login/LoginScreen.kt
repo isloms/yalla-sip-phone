@@ -69,6 +69,18 @@ private val SplashGradient = Brush.linearGradient(
 private val CardShape = RoundedCornerShape(16.dp)
 private val FieldShape = RoundedCornerShape(10.dp)
 
+// Login card always uses dark colors regardless of theme — sits on purple gradient
+private val CardBg = Color(0xFF1A1A20).copy(alpha = 0.88f)
+private val CardFieldBg = Color(0xFF21222B)
+private val CardBorder = Color(0xFF383843)
+private val CardTextBase = Color.White
+private val CardTextSubtle = Color(0xFF747C8B)
+private val CardIconSubtle = Color(0xFF98A2B3)
+private val CardBrand = Color(0xFF562DF8)
+private val CardBrandDisabled = Color(0xFF2C2D34)
+private val CardError = Color(0xFFF42500)
+private val CardPinkSun = Color(0xFFFF234B)
+
 @Composable
 fun LoginScreen(component: LoginComponent) {
     val tokens = LocalAppTokens.current
@@ -90,12 +102,12 @@ fun LoginScreen(component: LoginComponent) {
             .background(SplashGradient),
         contentAlignment = Alignment.Center,
     ) {
-        // Semi-transparent card
+        // Semi-transparent dark card (always dark, sits on purple gradient)
         Column(
             modifier = Modifier
                 .width(320.dp)
                 .clip(CardShape)
-                .background(colors.backgroundBase.copy(alpha = 0.85f))
+                .background(CardBg)
                 .padding(horizontal = 40.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -104,7 +116,7 @@ fun LoginScreen(component: LoginComponent) {
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(colors.buttonActive),
+                    .background(CardBrand),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -139,21 +151,21 @@ fun LoginScreen(component: LoginComponent) {
                         Text(
                             text = strings.errorWrongPassword,
                             style = MaterialTheme.typography.bodySmall,
-                            color = colors.iconRed,
+                            color = CardError,
                         )
                     }
                     errorState?.type == LoginErrorType.NETWORK -> {
                         Text(
                             text = strings.errorNetworkFailed,
                             style = MaterialTheme.typography.bodySmall,
-                            color = colors.pinkSun,
+                            color = CardPinkSun,
                         )
                     }
                     else -> {
                         Text(
                             text = strings.loginSubtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = colors.iconSubtle,
+                            color = CardIconSubtle,
                         )
                     }
                 }
@@ -163,9 +175,9 @@ fun LoginScreen(component: LoginComponent) {
 
             // Password field: custom with backgroundSecondary bg, borderDisabled border
             val fieldBorderColor = if (errorState?.type == LoginErrorType.WRONG_PASSWORD) {
-                colors.errorIndicator
+                CardError
             } else {
-                colors.borderDisabled
+                CardBorder
             }
 
             BasicTextField(
@@ -174,10 +186,10 @@ fun LoginScreen(component: LoginComponent) {
                 singleLine = true,
                 enabled = !isLoading,
                 textStyle = TextStyle(
-                    color = colors.textBase,
+                    color = CardTextBase,
                     fontSize = 14.sp,
                 ),
-                cursorBrush = SolidColor(colors.buttonActive),
+                cursorBrush = SolidColor(CardBrand),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -198,7 +210,7 @@ fun LoginScreen(component: LoginComponent) {
                             .fillMaxWidth()
                             .height(44.dp)
                             .clip(FieldShape)
-                            .background(colors.backgroundSecondary)
+                            .background(CardFieldBg)
                             .border(1.dp, fieldBorderColor, FieldShape)
                             .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -206,7 +218,7 @@ fun LoginScreen(component: LoginComponent) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
-                            tint = colors.iconSubtle,
+                            tint = CardIconSubtle,
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -216,7 +228,7 @@ fun LoginScreen(component: LoginComponent) {
                                     text = strings.loginPasswordPlaceholder,
                                     style = TextStyle(
                                         fontSize = 14.sp,
-                                        color = colors.textSubtle,
+                                        color = CardTextSubtle,
                                     ),
                                 )
                             }
@@ -233,7 +245,7 @@ fun LoginScreen(component: LoginComponent) {
                                     Icons.Default.Visibility
                                 },
                                 contentDescription = null,
-                                tint = colors.iconSubtle,
+                                tint = CardIconSubtle,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -259,8 +271,8 @@ fun LoginScreen(component: LoginComponent) {
                     .pointerHoverIcon(PointerIcon.Hand),
                 shape = FieldShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.buttonActive,
-                    disabledContainerColor = colors.buttonDisabled,
+                    containerColor = CardBrand,
+                    disabledContainerColor = CardBrandDisabled,
                 ),
             ) {
                 if (isLoading) {
@@ -287,7 +299,7 @@ fun LoginScreen(component: LoginComponent) {
             ) {
                 Text(
                     text = strings.loginManualConnection,
-                    color = colors.textSubtle,
+                    color = CardTextSubtle,
                     fontSize = 13.sp,
                 )
             }
@@ -309,7 +321,7 @@ fun LoginScreen(component: LoginComponent) {
             // Version
             Text(
                 text = "v${SipConstants.APP_VERSION}",
-                color = colors.borderDisabled,
+                color = CardBorder,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
