@@ -71,7 +71,7 @@ fun PhoneField(
         decorationBox = { innerTextField ->
             Box(
                 modifier = Modifier
-                    .widthIn(min = 120.dp, max = 160.dp)
+                    .widthIn(min = 180.dp, max = 220.dp)
                     .height(tokens.fieldHeight)
                     .background(colors.backgroundSecondary, tokens.shapeSmall)
                     .border(tokens.dividerThickness, borderColor, tokens.shapeSmall)
