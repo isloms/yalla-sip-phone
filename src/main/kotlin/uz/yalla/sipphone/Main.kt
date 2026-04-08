@@ -103,12 +103,7 @@ fun main() {
             position = WindowPosition(Alignment.Center),
         )
 
-        // Prevent minimize on main screen
-        LaunchedEffect(isMainScreen, windowState.isMinimized) {
-            if (isMainScreen && windowState.isMinimized) {
-                windowState.isMinimized = false
-            }
-        }
+        // Window is regular — no force unminimize
 
         val windowTitle = if (isMainScreen) {
             "${Strings.APP_TITLE} \u2014 ${mainComponent?.agentInfo?.name.orEmpty()}"
@@ -126,7 +121,7 @@ fun main() {
                         javax.swing.JOptionPane.YES_NO_OPTION,
                     )
                     val dialog = pane.createDialog(null, Strings.SETTINGS_LOGOUT_CONFIRM_TITLE)
-                    dialog.isAlwaysOnTop = true
+                    dialog.isAlwaysOnTop = false
                     dialog.isVisible = true
                     val confirm = pane.value as? Int ?: javax.swing.JOptionPane.NO_OPTION
                     if (confirm == javax.swing.JOptionPane.YES_OPTION) {
@@ -144,7 +139,7 @@ fun main() {
             },
             title = windowTitle,
             state = windowState,
-            alwaysOnTop = isMainScreen,
+            alwaysOnTop = false,
             resizable = isMainScreen,
         ) {
             // Window properties via AWT — same size for both screens, only resizable/alwaysOnTop change

@@ -83,14 +83,19 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
 
     override suspend fun shutdown() {
         if (!destroyed.compareAndSet(false, true)) return
-        withContext(closeableDispatcher) {
-            callManager.destroy()
-            accountManager.destroy()
-            endpointManager.stopPolling()
-            endpointManager.destroy()
+        try {
+            withContext(closeableDispatcher) {
+                callManager.destroy()
+                accountManager.destroy()
+                endpointManager.stopPolling()
+                endpointManager.destroy()
+            }
+        } catch (e: Exception) {
+            logger.warn(e) { "Error during pjsip shutdown" }
+        } finally {
+            scope.cancel()
+            runCatching { closeableDispatcher.close() }
         }
-        scope.cancel()
-        closeableDispatcher.close()
     }
 
     override val callState: StateFlow<CallState>
