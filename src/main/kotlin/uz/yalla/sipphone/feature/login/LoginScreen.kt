@@ -55,10 +55,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.CompositionLocalProvider
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
+import uz.yalla.sipphone.ui.theme.YallaColors
 
 private val SplashGradient = Brush.linearGradient(
     colors = listOf(Color(0xFF7957FF), Color(0xFF562DF8), Color(0xFF3812CE)),
@@ -69,22 +71,9 @@ private val SplashGradient = Brush.linearGradient(
 private val CardShape = RoundedCornerShape(16.dp)
 private val FieldShape = RoundedCornerShape(10.dp)
 
-// Login card always uses dark colors regardless of theme — sits on purple gradient
-private val CardBg = Color(0xFF1A1A20).copy(alpha = 0.88f)
-private val CardFieldBg = Color(0xFF21222B)
-private val CardBorder = Color(0xFF383843)
-private val CardTextBase = Color.White
-private val CardTextSubtle = Color(0xFF747C8B)
-private val CardIconSubtle = Color(0xFF98A2B3)
-private val CardBrand = Color(0xFF562DF8)
-private val CardBrandDisabled = Color(0xFF2C2D34)
-private val CardError = Color(0xFFF42500)
-private val CardPinkSun = Color(0xFFFF234B)
-
 @Composable
 fun LoginScreen(component: LoginComponent) {
     val tokens = LocalAppTokens.current
-    val colors = LocalYallaColors.current
     val strings = LocalStrings.current
     val loginState by component.loginState.collectAsState()
 
@@ -102,12 +91,15 @@ fun LoginScreen(component: LoginComponent) {
             .background(SplashGradient),
         contentAlignment = Alignment.Center,
     ) {
-        // Semi-transparent dark card (always dark, sits on purple gradient)
+        // Force dark colors inside card — gradient bg requires dark card
+        CompositionLocalProvider(LocalYallaColors provides YallaColors.Dark) {
+        val colors = LocalYallaColors.current
+
         Column(
             modifier = Modifier
                 .width(320.dp)
                 .clip(CardShape)
-                .background(CardBg)
+                .background(colors.backgroundBase.copy(alpha = 0.88f))
                 .padding(horizontal = 40.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -116,7 +108,7 @@ fun LoginScreen(component: LoginComponent) {
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(CardBrand),
+                    .background(colors.buttonActive),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -151,21 +143,21 @@ fun LoginScreen(component: LoginComponent) {
                         Text(
                             text = strings.errorWrongPassword,
                             style = MaterialTheme.typography.bodySmall,
-                            color = CardError,
+                            color = colors.iconRed,
                         )
                     }
                     errorState?.type == LoginErrorType.NETWORK -> {
                         Text(
                             text = strings.errorNetworkFailed,
                             style = MaterialTheme.typography.bodySmall,
-                            color = CardPinkSun,
+                            color = colors.pinkSun,
                         )
                     }
                     else -> {
                         Text(
                             text = strings.loginSubtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = CardIconSubtle,
+                            color = colors.iconSubtle,
                         )
                     }
                 }
@@ -175,9 +167,9 @@ fun LoginScreen(component: LoginComponent) {
 
             // Password field: custom with backgroundSecondary bg, borderDisabled border
             val fieldBorderColor = if (errorState?.type == LoginErrorType.WRONG_PASSWORD) {
-                CardError
+                colors.iconRed
             } else {
-                CardBorder
+                colors.borderDisabled
             }
 
             BasicTextField(
@@ -186,10 +178,10 @@ fun LoginScreen(component: LoginComponent) {
                 singleLine = true,
                 enabled = !isLoading,
                 textStyle = TextStyle(
-                    color = CardTextBase,
+                    color = colors.textBase,
                     fontSize = 14.sp,
                 ),
-                cursorBrush = SolidColor(CardBrand),
+                cursorBrush = SolidColor(colors.buttonActive),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -210,7 +202,7 @@ fun LoginScreen(component: LoginComponent) {
                             .fillMaxWidth()
                             .height(44.dp)
                             .clip(FieldShape)
-                            .background(CardFieldBg)
+                            .background(colors.backgroundSecondary)
                             .border(1.dp, fieldBorderColor, FieldShape)
                             .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -218,7 +210,7 @@ fun LoginScreen(component: LoginComponent) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
-                            tint = CardIconSubtle,
+                            tint = colors.iconSubtle,
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -228,7 +220,7 @@ fun LoginScreen(component: LoginComponent) {
                                     text = strings.loginPasswordPlaceholder,
                                     style = TextStyle(
                                         fontSize = 14.sp,
-                                        color = CardTextSubtle,
+                                        color = colors.textSubtle,
                                     ),
                                 )
                             }
@@ -245,7 +237,7 @@ fun LoginScreen(component: LoginComponent) {
                                     Icons.Default.Visibility
                                 },
                                 contentDescription = null,
-                                tint = CardIconSubtle,
+                                tint = colors.iconSubtle,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -271,8 +263,8 @@ fun LoginScreen(component: LoginComponent) {
                     .pointerHoverIcon(PointerIcon.Hand),
                 shape = FieldShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = CardBrand,
-                    disabledContainerColor = CardBrandDisabled,
+                    containerColor = colors.buttonActive,
+                    disabledContainerColor = colors.buttonDisabled,
                 ),
             ) {
                 if (isLoading) {
@@ -299,7 +291,7 @@ fun LoginScreen(component: LoginComponent) {
             ) {
                 Text(
                     text = strings.loginManualConnection,
-                    color = CardTextSubtle,
+                    color = colors.textSubtle,
                     fontSize = 13.sp,
                 )
             }
@@ -321,10 +313,11 @@ fun LoginScreen(component: LoginComponent) {
             // Version
             Text(
                 text = "v${SipConstants.APP_VERSION}",
-                color = CardBorder,
+                color = colors.borderDisabled,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        } // CompositionLocalProvider
     }
 }
 
