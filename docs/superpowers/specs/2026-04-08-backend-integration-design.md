@@ -592,13 +592,70 @@ testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
 
 ---
 
+## Session Invalidation via JS Bridge
+
+### Problem
+
+When operator A logs in with PIN X and operator B also logs in with PIN X, the server invalidates A's token. The SIP Phone app does not detect this because it makes no API calls during normal operation. However, the web page (dispatcher panel in WebView) IS making API calls with the token and will receive 401.
+
+### Solution
+
+The frontend app detects 401 and sends a `requestLogout` command through the JS bridge. The native app handles it by performing full logout.
+
+### Bridge Command: `requestLogout`
+
+Frontend calls:
+```javascript
+YallaSIP.requestLogout()
+// Response: { success: true, data: null }
+```
+
+### Implementation
+
+`BridgeRouter` handles the new command:
+```kotlin
+"requestLogout" -> {
+    logger.info { "Frontend requested logout (likely token invalidated by another session)" }
+    scope.launch {
+        logoutOrchestrator.logout()
+        authEventBus.emit(AuthEvent.SessionExpired)
+    }
+    CommandResult.success(null)
+}
+```
+
+`BridgeRouter` needs `LogoutOrchestrator` and `AuthEventBus` injected (or accessible via MainComponent).
+
+### Flow
+
+```
+Operator B logs in with same PIN
+  → Server invalidates A's token
+  → A's WebView frontend makes API call → 401
+  → Frontend calls window.YallaSIP.requestLogout()
+  → BridgeRouter receives command
+  → LogoutOrchestrator.logout() (SIP unregister, connection stop, token clear)
+  → AuthEventBus.emit(SessionExpired)
+  → RootComponent navigates to Login screen
+```
+
+### Modified Files (additional to existing list)
+
+| File | Change |
+|------|--------|
+| `data/jcef/BridgeRouter.kt` | Add `requestLogout` command handler |
+| `docs/js-bridge-api.md` | Document `requestLogout` command |
+
+---
+
 ## Error Handling
 
 | Scenario | What happens |
 |----------|-------------|
 | Wrong PIN | API returns `{status: false, code: 401, errors: "employee not found"}` → LoginScreen shows error |
 | Network down | `IOException` → `NetworkError.NoConnection` → LoginScreen shows "No connection" |
-| Token expired mid-session | Any API returns 401 → `AuthEventBus.SessionExpired` → redirect to Login |
+| Token expired (API call) | HTTP 401 from `safeRequest` → `AuthEventBus.SessionExpired` → LogoutOrchestrator → Login |
+| Token invalidated (another login) | WebView gets 401 → frontend calls `requestLogout` → LogoutOrchestrator → Login |
 | No active SIP in /me | `sips.none { it.isActive }` → `Result.failure` → LoginScreen shows "No SIP connection" |
 | API server down | Timeout → `NetworkError.NoConnection` → LoginScreen shows error |
 | SIP registration fails | Existing flow handles this via `RegistrationState.Failed` |
