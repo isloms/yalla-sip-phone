@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthResult
+import uz.yalla.sipphone.domain.SipAccountInfo
 import uz.yalla.sipphone.domain.SipCredentials
 
 @Serializable
@@ -29,16 +30,25 @@ data class SipConnectionDto(
 )
 
 fun MeResultDto.toAuthResult(token: String, dispatcherUrl: String): AuthResult {
-    val sip = sips.first { it.isActive }
+    val activeAccounts = sips
+        .filter { it.isActive }
+        .map { sip ->
+            SipAccountInfo(
+                extensionNumber = sip.extensionNumber,
+                serverUrl = sip.serverUrl,
+                sipName = sip.sipName,
+                credentials = SipCredentials(
+                    server = sip.domain,
+                    port = sip.serverPort,
+                    username = sip.extensionNumber.toString(),
+                    password = sip.password,
+                    transport = sip.connectionType.uppercase(),
+                ),
+            )
+        }
     return AuthResult(
         token = token,
-        sipCredentials = SipCredentials(
-            server = sip.domain,
-            port = sip.serverPort,
-            username = sip.extensionNumber.toString(),
-            password = sip.password,
-            transport = sip.connectionType.uppercase(),
-        ),
+        accounts = activeAccounts,
         dispatcherUrl = dispatcherUrl,
         agent = AgentInfo(id = id.toString(), name = fullName),
     )

@@ -14,7 +14,9 @@ import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipAccountInfo
 import uz.yalla.sipphone.domain.SipCredentials
+import uz.yalla.sipphone.domain.sipCredentials
 
 private val logger = KotlinLogging.logger {}
 
@@ -81,7 +83,14 @@ class LoginComponent(
         val credentials = SipCredentials(server = server, port = port, username = username, password = password)
         lastAuthResult = AuthResult(
             token = "",
-            sipCredentials = credentials,
+            accounts = listOf(
+                SipAccountInfo(
+                    extensionNumber = username.toIntOrNull() ?: 0,
+                    serverUrl = server,
+                    sipName = null,
+                    credentials = credentials,
+                ),
+            ),
             dispatcherUrl = dispatcherUrl,
             agent = AgentInfo("manual", username),
         )

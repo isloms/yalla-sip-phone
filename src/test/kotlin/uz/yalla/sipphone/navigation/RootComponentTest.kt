@@ -23,6 +23,7 @@ import uz.yalla.sipphone.domain.ConnectionManager
 import uz.yalla.sipphone.domain.ConnectionState
 import uz.yalla.sipphone.domain.FakeCallEngine
 import uz.yalla.sipphone.domain.FakeRegistrationEngine
+import uz.yalla.sipphone.domain.SipAccountInfo
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.feature.login.LoginComponent
 import uz.yalla.sipphone.feature.main.MainComponent
@@ -47,7 +48,14 @@ class RootComponentTest {
 
     private val testAuthResult = AuthResult(
         token = "test-token",
-        sipCredentials = SipCredentials("192.168.0.22", 5060, "102", "pass"),
+        accounts = listOf(
+            SipAccountInfo(
+                extensionNumber = 102,
+                serverUrl = "192.168.0.22",
+                sipName = null,
+                credentials = SipCredentials("192.168.0.22", 5060, "102", "pass"),
+            ),
+        ),
         dispatcherUrl = "http://dispatcher.test",
         agent = AgentInfo("1", "Test Agent"),
     )

@@ -30,18 +30,17 @@ class AuthRepositoryImpl(
             return Result.failure(error)
         }
 
-        val activeSip = meDto.sips.firstOrNull { it.isActive }
-        if (activeSip == null) {
-            tokenProvider.clearToken()
-            return Result.failure(IllegalStateException("No active SIP connection available"))
-        }
-
         val authResult = meDto.toAuthResult(
             token = loginDto.token,
             dispatcherUrl = ApiConfig.DISPATCHER_URL,
         )
 
-        logger.info { "Auth complete: agent=${authResult.agent.name}, sip=${authResult.sipCredentials}" }
+        if (authResult.accounts.isEmpty()) {
+            tokenProvider.clearToken()
+            return Result.failure(IllegalStateException("No active SIP accounts found"))
+        }
+
+        logger.info { "Auth complete: agent=${authResult.agent.name}, accounts=${authResult.accounts.size}" }
         return Result.success(authResult)
     }
 
