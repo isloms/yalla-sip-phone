@@ -1,13 +1,14 @@
 package uz.yalla.sipphone.feature.main
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import uz.yalla.sipphone.feature.main.toolbar.SettingsPanel
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarContent
@@ -38,12 +39,12 @@ fun MainScreen(
             onLogout = component::logout,
         )
 
-        // Content area: webview + optional settings panel on the right
-        Row(modifier = Modifier.weight(1f).fillMaxSize()) {
+        // Content area: webview fills all, settings panel overlays from the right
+        Box(modifier = Modifier.weight(1f).fillMaxSize()) {
             WebviewPanel(
                 jcefManager = component.jcefManager,
                 dispatcherUrl = component.dispatcherUrl,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
+                modifier = Modifier.fillMaxSize(),
             )
 
             SettingsPanel(
@@ -58,6 +59,7 @@ fun MainScreen(
                 onLocaleChange = onLocaleChange,
                 onLogout = component::logout,
                 onDismiss = component.toolbar::closeSettings,
+                modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
     }
