@@ -54,6 +54,7 @@ interface StringResources {
     val labelPort: String
     val labelUsername: String
     val labelPassword: String
+    val labelDispatcherUrl: String
     val placeholderServer: String
     val placeholderUsername: String
     val placeholderDispatcherUrl: String

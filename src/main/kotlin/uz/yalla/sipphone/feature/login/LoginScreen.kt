@@ -279,7 +279,7 @@ private fun ManualConnectionDialog(
                 )
                 OutlinedTextField(
                     value = dispatcherUrl, onValueChange = { dispatcherUrl = it },
-                    label = { Text(strings.placeholderDispatcherUrl) },
+                    label = { Text(strings.labelDispatcherUrl) },
                     placeholder = {
                         Text(strings.placeholderDispatcherUrl, style = MaterialTheme.typography.bodySmall,
                             color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))

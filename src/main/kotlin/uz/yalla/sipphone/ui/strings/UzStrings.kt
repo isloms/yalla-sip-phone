@@ -41,6 +41,7 @@ object UzStrings : StringResources {
     override val labelPort = "Port"
     override val labelUsername = "Foydalanuvchi"
     override val labelPassword = "Parol"
+    override val labelDispatcherUrl = "Dispatcher URL"
     override val placeholderServer = "sip.example.com"
     override val placeholderUsername = "1001"
     override val placeholderDispatcherUrl = "http://192.168.0.234:5173"
