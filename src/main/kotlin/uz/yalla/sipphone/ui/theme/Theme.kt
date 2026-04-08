@@ -11,6 +11,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.materialkolor.rememberDynamicColorScheme
+import uz.yalla.sipphone.ui.strings.LocalStrings
+import uz.yalla.sipphone.ui.strings.RuStrings
+import uz.yalla.sipphone.ui.strings.StringResources
+import uz.yalla.sipphone.ui.strings.UzStrings
 
 data class ExtendedColors(
     val success: Color,
@@ -53,6 +57,7 @@ private val AppTypography = Typography(
 @Composable
 fun YallaSipPhoneTheme(
     isDark: Boolean = false,
+    locale: String = "uz",
     content: @Composable () -> Unit,
 ) {
     val seedColor = Color(0xFF562DF8) // Yalla purple
@@ -69,6 +74,11 @@ fun YallaSipPhoneTheme(
         onSuccessContainer = if (isDark) Color(0xFFA5D6A7) else Color(0xFF155724),
     )
 
+    val strings: StringResources = when (locale) {
+        "ru" -> RuStrings
+        else -> UzStrings
+    }
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = AppTypography,
@@ -77,6 +87,7 @@ fun YallaSipPhoneTheme(
             LocalExtendedColors provides extendedColors,
             LocalAppTokens provides AppTokens(),
             LocalYallaColors provides yallaColors,
+            LocalStrings provides strings,
             content = content,
         )
     }

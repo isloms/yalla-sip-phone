@@ -8,6 +8,10 @@ class AppSettings {
 
     private val settings = Settings()
 
+    var locale: String
+        get() = settings.getString("locale", "uz")
+        set(value) = settings.putString("locale", value)
+
     fun saveCredentials(credentials: SipCredentials) {
         settings.putString("sip_server", credentials.server)
         settings.putInt("sip_port", credentials.port)
