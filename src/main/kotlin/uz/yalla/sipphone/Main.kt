@@ -42,6 +42,7 @@ private val logger = KotlinLogging.logger {}
 
 fun main() {
     System.setProperty("compose.interop.blending", "true")
+    System.setProperty("compose.layers.type", "WINDOW")
 
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         logger.error(throwable) { "Uncaught exception on ${thread.name}" }
