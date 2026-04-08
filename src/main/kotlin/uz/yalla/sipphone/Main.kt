@@ -41,8 +41,9 @@ import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 private val logger = KotlinLogging.logger {}
 
 fun main() {
-    // Render Compose above JCEF SwingPanel for tooltips/popups
-    System.setProperty("compose.interop.blending", "true")
+    // Render Compose via Swing Graphics2D — avoids Metal/CAMetalLayer race conditions
+    // that cause AppKit Thread exceptions, system beep, and screen flash on macOS
+    System.setProperty("compose.swing.render.on.graphics", "true")
 
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         logger.error(throwable) { "Uncaught exception on ${thread.name}" }
