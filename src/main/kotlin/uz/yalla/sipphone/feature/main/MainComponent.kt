@@ -66,6 +66,7 @@ class MainComponent(
                 onAgentStatusChange = { toolbar.setAgentStatus(it) },
                 onReady = eventEmitter::completeHandshake,
                 onRequestLogout = { onLogout() },
+                tokenProvider = { authResult.token },
             )
             this.bridgeRouter = bridgeRouter
 

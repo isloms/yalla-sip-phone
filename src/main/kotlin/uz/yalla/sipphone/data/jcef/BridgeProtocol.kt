@@ -170,6 +170,7 @@ data class BridgeState(
     val connection: BridgeConnectionState,
     val agentStatus: String,
     val call: BridgeCallState? = null,
+    val token: String? = null,
 )
 
 @Serializable
