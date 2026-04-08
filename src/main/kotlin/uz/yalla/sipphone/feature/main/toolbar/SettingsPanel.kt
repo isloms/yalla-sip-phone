@@ -183,7 +183,7 @@ fun SettingsPanel(
                 Spacer(Modifier.height(tokens.spacingSm))
 
                 TextButton(
-                    onClick = { onDismiss(); onLogout() },
+                    onClick = onLogout,
                     modifier = Modifier
                         .fillMaxWidth()
                         .pointerHoverIcon(PointerIcon.Hand),
