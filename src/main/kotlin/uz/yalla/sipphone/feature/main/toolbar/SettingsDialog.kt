@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
@@ -38,7 +39,6 @@ import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.SipConstants
-import uz.yalla.sipphone.ui.component.YallaIconButton
 import uz.yalla.sipphone.ui.component.YallaSegmentedControl
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
@@ -99,13 +99,21 @@ fun SettingsDialog(
                             fontWeight = FontWeight.SemiBold,
                             color = colors.textBase,
                         )
-                        YallaIconButton(
-                            icon = Icons.Filled.Close,
-                            contentDescription = null,
-                            onClick = onDismiss,
-                            containerColor = colors.backgroundSecondary,
-                            contentColor = colors.iconSubtle,
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(t.shapeXs)
+                                .background(colors.backgroundSecondary)
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clickable(onClick = onDismiss),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Close, null,
+                                modifier = Modifier.size(14.dp),
+                                tint = colors.iconSubtle,
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(t.spacingMd))
