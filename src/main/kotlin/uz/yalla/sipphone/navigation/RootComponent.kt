@@ -71,9 +71,12 @@ class RootComponent(
                 }
                 Child.Main(
                     factory.createMain(context, auth) {
-                        currentAuthResult = null
-                        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
-                        logoutOrchestrator.reset()
+                        scope.launch {
+                            logoutOrchestrator.logout()
+                            currentAuthResult = null
+                            navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+                            logoutOrchestrator.reset()
+                        }
                     },
                 )
             }
