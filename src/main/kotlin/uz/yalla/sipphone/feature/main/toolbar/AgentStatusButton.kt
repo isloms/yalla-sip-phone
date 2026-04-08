@@ -26,8 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
@@ -78,9 +76,9 @@ fun AgentStatusButton(
     val colors = LocalYallaColors.current
     val strings = LocalStrings.current
     var showDropdown by remember { mutableStateOf(false) }
-    var buttonScreenX by remember { mutableStateOf(0f) }
-    var buttonScreenY by remember { mutableStateOf(0f) }
-    var buttonHeight by remember { mutableStateOf(0f) }
+    // Screen position where dropdown should open (set on click)
+    var dropdownScreenX by remember { mutableStateOf(0) }
+    var dropdownScreenY by remember { mutableStateOf(0) }
     val density = LocalDensity.current
 
     val displayStatus = currentStatus.toDisplayStatus()
@@ -104,18 +102,15 @@ fun AgentStatusButton(
             .clip(RoundedCornerShape(8.dp))
             .background(colors.backgroundSecondary)
             .pointerHoverIcon(PointerIcon.Hand)
-            .onGloballyPositioned { coords ->
-                val pos = coords.positionInWindow()
-                // Get the window's position on screen
-                val window = MouseInfo.getPointerInfo()?.device?.defaultConfiguration
-                    ?.bounds?.location
-                // We'll use the button's window-relative position
-                // and add window offset when opening dialog
-                buttonScreenX = pos.x
-                buttonScreenY = pos.y
-                buttonHeight = coords.size.height.toFloat()
-            }
-            .clickable { showDropdown = true },
+            .clickable {
+                // Use mouse position at click time — reliable screen coordinates
+                val mousePos = MouseInfo.getPointerInfo()?.location
+                if (mousePos != null) {
+                    dropdownScreenX = mousePos.x - 20 // offset left so dropdown aligns with button
+                    dropdownScreenY = mousePos.y + 10  // below cursor
+                }
+                showDropdown = true
+            },
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -131,9 +126,9 @@ fun AgentStatusButton(
         val dropdownWidth = 180
         val dropdownHeight = 130
 
-        // Position below the button
-        val xDp = with(density) { buttonScreenX.toDp() }
-        val yDp = with(density) { (buttonScreenY + buttonHeight + 4f).toDp() }
+        // Position from mouse click screen coordinates
+        val xDp = with(density) { dropdownScreenX.toDp() }
+        val yDp = with(density) { dropdownScreenY.toDp() }
 
         DialogWindow(
             onCloseRequest = { showDropdown = false },
