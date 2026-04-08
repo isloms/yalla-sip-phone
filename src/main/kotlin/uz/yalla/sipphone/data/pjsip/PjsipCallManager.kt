@@ -30,6 +30,9 @@ interface AudioMediaProvider {
  * All public methods must be called on [pjDispatcher] (the pjsip event-loop thread).
  * State is exposed via [callState] and can be collected from any thread.
  *
+ * Supports multi-account call routing: [makeCall] accepts an [accountId] to select which
+ * SIP line to dial from. Incoming calls carry the [accountId] of the receiving account.
+ *
  * SWIG lifecycle: call [destroy] before [PjsipEndpointManager.destroy]. The manager hangs up
  * any active call and deletes the underlying [PjsipCall] SWIG object during [destroy].
  */
@@ -46,6 +49,7 @@ class PjsipCallManager(
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
     private var currentCall: PjsipCall? = null
     private var currentCallId: String? = null
+    private var currentAccountId: String? = null
     private var holdInProgress = false
     private var holdTimeoutJob: Job? = null
     private var hangupTimeoutJob: Job? = null
@@ -113,10 +117,27 @@ class PjsipCallManager(
         holdTimeoutJob = null
     }
 
+    /**
+     * Initiates an outbound call to [number] using the account identified by [accountId].
+     *
+     * If [accountId] is empty, the first connected account is used (backward compat).
+     */
     suspend fun makeCall(number: String, accountId: String = ""): Result<Unit> {
         if (currentCall != null) return Result.failure(IllegalStateException("Call already active"))
-        val acc = accountProvider.currentAccount
-            ?: return Result.failure(IllegalStateException("Not registered"))
+
+        val acc: PjsipAccount
+        val resolvedAccountId: String
+        if (accountId.isNotEmpty()) {
+            acc = accountProvider.getAccount(accountId)
+                ?: return Result.failure(IllegalStateException("Account $accountId not found"))
+            resolvedAccountId = accountId
+        } else {
+            val firstAcc = accountProvider.getFirstConnectedAccount()
+                ?: return Result.failure(IllegalStateException("No connected account"))
+            acc = firstAcc
+            resolvedAccountId = firstAcc.accountId
+        }
+
         val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
         if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
         try {
@@ -130,15 +151,17 @@ class PjsipCallManager(
             }
             currentCall = call
             currentCallId = UUID.randomUUID().toString()
+            currentAccountId = resolvedAccountId
             _callState.value = CallState.Ringing(
                 callId = currentCallId!!,
                 callerNumber = number,
                 callerName = null,
                 isOutbound = true,
+                accountId = resolvedAccountId,
             )
             return Result.success(Unit)
         } catch (e: Exception) {
-            logger.error(e) { "makeCall failed" }
+            logger.error(e) { "makeCall failed on account $resolvedAccountId" }
             _callState.value = CallState.Idle
             return Result.failure(e)
         }
@@ -158,7 +181,10 @@ class PjsipCallManager(
     suspend fun hangupCall() {
         val call = currentCall ?: return
         try {
-            _callState.value = CallState.Ending()
+            _callState.value = CallState.Ending(
+                callId = currentCallId ?: "",
+                accountId = currentAccountId ?: "",
+            )
             withCallOpParam { prm -> call.hangup(prm) }
             // Safety net: force Idle after 10s if onCallDisconnected never fires
             hangupTimeoutJob?.cancel()
@@ -262,6 +288,7 @@ class PjsipCallManager(
                 isOutbound = state.isOutbound,
                 isMuted = false,
                 isOnHold = false,
+                accountId = state.accountId,
             )
         }
     }
@@ -277,10 +304,16 @@ class PjsipCallManager(
         }
     }
 
-    override fun onIncomingCall(callId: Int) {
-        val acc = accountProvider.currentAccount ?: return
+    /**
+     * Handles an incoming call on the account identified by [accountId].
+     */
+    override fun onIncomingCall(accountId: String, callId: Int) {
+        val acc = accountProvider.getAccount(accountId) ?: run {
+            logger.warn { "Incoming call on unknown account $accountId — ignoring" }
+            return
+        }
         if (currentCall != null) {
-            logger.warn { "Rejecting incoming call (already in call)" }
+            logger.warn { "Rejecting incoming call on $accountId (already in call)" }
             try {
                 val call = PjsipCall(this, acc, callId)
                 withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> call.hangup(prm) }
@@ -294,6 +327,7 @@ class PjsipCallManager(
             val call = PjsipCall(this, acc, callId)
             currentCall = call
             currentCallId = UUID.randomUUID().toString()
+            currentAccountId = accountId
             val info = call.getInfo()
             try {
                 val callerInfo = parseRemoteUri(info.remoteUri)
@@ -302,13 +336,16 @@ class PjsipCallManager(
                     callerNumber = callerInfo.number,
                     callerName = callerInfo.displayName,
                     isOutbound = false,
+                    accountId = accountId,
                 )
-                logger.info { "Incoming call from: ${callerInfo.displayName ?: callerInfo.number}" }
+                logger.info {
+                    "Incoming call on $accountId from: ${callerInfo.displayName ?: callerInfo.number}"
+                }
             } finally {
                 info.delete()
             }
         } catch (e: Exception) {
-            logger.error(e) { "Error handling incoming call" }
+            logger.error(e) { "Error handling incoming call on $accountId" }
             resetCallState()
         }
     }
@@ -395,12 +432,14 @@ class PjsipCallManager(
         }
         currentCall = null
         currentCallId = null
+        currentAccountId = null
         _callState.value = CallState.Idle
     }
 
     private fun resetCallState() {
         currentCall = null
         currentCallId = null
+        currentAccountId = null
         _callState.value = CallState.Idle
     }
 }
