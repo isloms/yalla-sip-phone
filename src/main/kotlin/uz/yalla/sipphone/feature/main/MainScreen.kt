@@ -2,6 +2,8 @@ package uz.yalla.sipphone.feature.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,25 +38,27 @@ fun MainScreen(
             onLogout = component::logout,
         )
 
-        WebviewPanel(
-            jcefManager = component.jcefManager,
-            dispatcherUrl = component.dispatcherUrl,
-            modifier = Modifier.weight(1f).fillMaxSize(),
-        )
-    }
+        // Webview + settings side panel
+        Row(modifier = Modifier.weight(1f).fillMaxSize()) {
+            WebviewPanel(
+                jcefManager = component.jcefManager,
+                dispatcherUrl = component.dispatcherUrl,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
 
-    // Settings panel — Popup-based, renders above JCEF on the right side
-    SettingsPanel(
-        visible = settingsVisible,
-        isDarkTheme = isDarkTheme,
-        locale = locale,
-        agentInfo = component.agentInfo,
-        onThemeToggle = {
-            onThemeToggle()
-            component.onThemeChanged(!isDarkTheme)
-        },
-        onLocaleChange = onLocaleChange,
-        onLogout = component::logout,
-        onDismiss = component.toolbar::closeSettings,
-    )
+            SettingsPanel(
+                visible = settingsVisible,
+                isDarkTheme = isDarkTheme,
+                locale = locale,
+                agentInfo = component.agentInfo,
+                onThemeToggle = {
+                    onThemeToggle()
+                    component.onThemeChanged(!isDarkTheme)
+                },
+                onLocaleChange = onLocaleChange,
+                onLogout = component::logout,
+                onDismiss = component.toolbar::closeSettings,
+            )
+        }
+    }
 }

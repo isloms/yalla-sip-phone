@@ -1,7 +1,6 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
@@ -30,9 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,10 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.component.YallaSegmentedControl
@@ -52,9 +45,8 @@ import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
 /**
- * Settings panel — renders as a Popup anchored to the right side.
- * Uses Popup so it renders above JCEF (via compose.layers.type=WINDOW).
- * Visually looks like a side panel, not a dialog.
+ * Settings side panel — slides in from the right, sits beside webview.
+ * Uses AnimatedVisibility with slide animation. NOT a Popup or Dialog.
  */
 @Composable
 fun SettingsPanel(
@@ -68,30 +60,19 @@ fun SettingsPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val animState = remember { MutableTransitionState(false) }
-    animState.targetState = visible
-
-    // Keep Popup alive while exit animation plays, dismiss when fully gone
-    val showPopup = visible || animState.currentState || animState.isIdle.not()
-    if (!showPopup) return
-
     val colors = LocalYallaColors.current
     val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
 
-    Popup(
-        alignment = Alignment.TopEnd,
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInHorizontally(initialOffsetX = { it }),
+        exit = slideOutHorizontally(targetOffsetX = { it }),
+        modifier = modifier,
     ) {
-        AnimatedVisibility(
-            visibleState = animState,
-            enter = slideInHorizontally(initialOffsetX = { it }),
-            exit = slideOutHorizontally(targetOffsetX = { it }),
-        ) {
         Column(
             modifier = Modifier
-                .width(280.dp)
+                .width(260.dp)
                 .fillMaxHeight()
                 .background(colors.backgroundSecondary)
                 .padding(tokens.spacingMd)
@@ -186,7 +167,7 @@ fun SettingsPanel(
 
             Spacer(Modifier.weight(1f))
 
-            // Logout at bottom
+            // Logout
             HorizontalDivider(color = colors.borderDefault)
             Spacer(Modifier.height(tokens.spacingSm))
 
@@ -209,7 +190,6 @@ fun SettingsPanel(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
         }
-        } // AnimatedVisibility
     }
 }
 
