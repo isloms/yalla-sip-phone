@@ -186,6 +186,7 @@ class BridgeEventEmitter(
         setAgentStatus: function(status) { return query({ command: 'setAgentStatus', params: { status: status } }); },
         getState: function() { return query({ command: 'getState' }).then(function(r) { return r.data; }); },
         getVersion: function() { return query({ command: 'getVersion' }).then(function(r) { return r.data; }); },
+        requestLogout: function() { return query({ command: 'requestLogout' }); },
 
         // --- Simulator for DevTools testing ---
         simulate: (function() {
