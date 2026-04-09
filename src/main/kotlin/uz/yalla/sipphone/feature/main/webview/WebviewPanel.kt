@@ -21,7 +21,7 @@ fun WebviewPanel(
         onDispose {
             if (!jcefManager.isClosed()) {
                 browser.stopLoad()
-                browser.close(false)
+                browser.loadURL("about:blank")
             }
         }
     }

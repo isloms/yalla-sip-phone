@@ -46,7 +46,9 @@ class MainComponent(
     init {
         lifecycle.doOnDestroy {
             toolbar.destroy()
+            eventEmitter.detach()
             bridgeRouter?.dispose()
+            jcefManager.teardownBridge()
         }
 
         // Set up JS Bridge (only if JCEF is initialized — skipped in tests)

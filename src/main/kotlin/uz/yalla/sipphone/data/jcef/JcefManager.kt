@@ -78,9 +78,13 @@ class JcefManager {
 
     fun createBrowser(url: String): CefBrowser {
         val client = cefClient ?: throw IllegalStateException("JCEF not initialized — call initialize() first")
-        isBrowserClosed = false
 
-        val create = { browser = client.createBrowser(url, false, false) }
+        val create: () -> Unit = {
+            val oldBrowser = browser
+            browser = client.createBrowser(url, false, false)
+            isBrowserClosed = false
+            oldBrowser?.close(true)
+        }
         if (SwingUtilities.isEventDispatchThread()) create() else SwingUtilities.invokeAndWait(create)
         return browser!!
     }
@@ -107,6 +111,10 @@ class JcefManager {
                 if (frame.isMain) onPageLoadStart()
             }
         })
+    }
+
+    fun teardownBridge() {
+        cefClient?.removeLoadHandler()
     }
 
     fun getBrowser(): CefBrowser? = browser

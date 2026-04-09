@@ -28,6 +28,11 @@ class BridgeEventEmitter(
         bufferedEvents.clear()
     }
 
+    fun detach() {
+        currentBrowser = null
+        resetHandshake()
+    }
+
     fun injectBridgeScript(browser: CefBrowser) {
         currentBrowser = browser
         browser.executeJavaScript(BRIDGE_SCRIPT, browser.url ?: "", 0)

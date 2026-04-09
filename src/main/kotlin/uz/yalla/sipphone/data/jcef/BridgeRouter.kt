@@ -7,6 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import javax.swing.SwingUtilities
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.cef.CefClient
@@ -38,7 +39,11 @@ class BridgeRouter(
     private val tokenProvider: suspend () -> String? = { null },
 ) {
     private var messageRouter: CefMessageRouter? = null
+    private var installedClient: CefClient? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var disposed = false
 
     fun install(client: CefClient) {
         val config = CefMessageRouterConfig().apply {
@@ -48,12 +53,16 @@ class BridgeRouter(
         messageRouter = CefMessageRouter.create(config)
         messageRouter!!.addHandler(RouterHandler(), false)
         client.addMessageRouter(messageRouter!!)
+        installedClient = client
     }
 
     fun dispose() {
+        disposed = true
         scope.cancel()
-        messageRouter?.dispose()
-        messageRouter = null
+        messageRouter?.let { router ->
+            installedClient?.removeMessageRouter(router)
+        }
+        installedClient = null
     }
 
     private inner class RouterHandler : CefMessageRouterHandlerAdapter() {
@@ -65,6 +74,7 @@ class BridgeRouter(
             persistent: Boolean,
             callback: CefQueryCallback,
         ): Boolean {
+            if (disposed) return false
             scope.launch {
                 try {
                     val cmd = bridgeJson.decodeFromString<BridgeCommand>(request)
@@ -111,7 +121,7 @@ class BridgeRouter(
             "getVersion" -> handleGetVersion()
             "requestLogout" -> {
                 logger.info { "Frontend requested logout (token likely invalidated by another session)" }
-                scope.launch { onRequestLogout() }
+                SwingUtilities.invokeLater { onRequestLogout() }
                 CommandResult.success(null)
             }
             else -> CommandResult.error("INTERNAL_ERROR", "Unknown command: ${cmd.command}", false)
