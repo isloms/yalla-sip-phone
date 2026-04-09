@@ -18,7 +18,9 @@ data class ApiResponse<T>(
 fun ApiResponse<*>.errorMessage(): String {
     return when (val e = errors) {
         is JsonPrimitive -> e.contentOrNull ?: message ?: "Unknown error"
-        is JsonObject -> e.entries.joinToString { "${it.key}: ${it.value}" }
+        is JsonObject -> e.entries.joinToString { (key, value) ->
+            "$key: ${(value as? JsonPrimitive)?.contentOrNull ?: value}"
+        }
         else -> message ?: "Unknown error"
     }
 }
