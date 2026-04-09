@@ -1,5 +1,6 @@
 package uz.yalla.sipphone
 
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -131,12 +132,16 @@ fun main() {
             }
 
             // AWT-level shortcuts — bypasses Compose/JCEF focus issues
-            LaunchedEffect(Unit) {
-                java.awt.Toolkit.getDefaultToolkit().addAWTEventListener({ event ->
+            DisposableEffect(Unit) {
+                val listener = java.awt.event.AWTEventListener { event ->
                     if (event is KeyEvent && event.id == KeyEvent.KEY_PRESSED) {
                         handleKeyboardShortcut(event, rootComponent)
                     }
-                }, AWTEvent.KEY_EVENT_MASK)
+                }
+                java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.KEY_EVENT_MASK)
+                onDispose {
+                    java.awt.Toolkit.getDefaultToolkit().removeAWTEventListener(listener)
+                }
             }
 
             LifecycleController(decomposeLifecycle, windowState)
