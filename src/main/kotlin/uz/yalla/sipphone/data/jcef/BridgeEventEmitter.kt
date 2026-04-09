@@ -18,7 +18,7 @@ class BridgeEventEmitter(
 
     var agentInfo: AgentInfo = AgentInfo("", "")
     var version: String = SipConstants.APP_VERSION
-    var capabilities: List<String> = listOf("call", "agentStatus", "callQuality")
+    var capabilities: List<String> = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer")
 
     fun nextSeq(): Int = seqCounter.incrementAndGet()
     fun now(): Long = System.currentTimeMillis()
@@ -256,6 +256,18 @@ class BridgeEventEmitter(
                 disconnect: function() { emit('connectionChanged', { state: 'disconnected', attempt: 0 }); },
                 reconnect: function(attempt) { emit('connectionChanged', { state: 'reconnecting', attempt: attempt || 1 }); },
                 connect: function() { emit('connectionChanged', { state: 'connected', attempt: 0 }); },
+
+                // Agent status: simulate.agentStatus('away')
+                agentStatus: function(status) { emit('agentStatusChanged', { status: status || 'away', previousStatus: 'ready' }); },
+
+                // Call quality: simulate.quality('poor')
+                quality: function(q) { emit('callQualityUpdate', { callId: call ? call.callId : 'none', quality: q || 'good' }); },
+
+                // Theme change: simulate.theme('dark')
+                theme: function(t) { emit('themeChanged', { theme: t || 'dark' }); },
+
+                // Error: simulate.error('TEST_ERROR', 'Something went wrong')
+                error: function(code, msg) { emit('error', { code: code || 'TEST_ERROR', message: msg || 'Test error', severity: 'warning' }); },
 
                 // Full scenario: simulate.callFlow() — incoming → answer → mute → unmute → hold → unhold → hangup
                 callFlow: function(number) {

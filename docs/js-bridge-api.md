@@ -255,6 +255,7 @@ Response:
     isOnHold: boolean,
     duration: number
   },
+  token: string | null,
   accounts: [
     {
       id: string,        // e.g. "1001@sip.yalla.uz"
@@ -272,7 +273,7 @@ Get bridge API version and available capabilities.
 
 ```javascript
 const info = await YallaSIP.getVersion();
-// { version: "1.2.0", capabilities: ["call", "agentStatus", "callQuality", "dtmf", "transfer", "multiSip"] }
+// { version: "1.2.0", capabilities: ["call", "agentStatus", "callQuality", "dtmf", "transfer"] }
 ```
 
 Check capabilities before using optional features:
@@ -310,6 +311,7 @@ All events include `seq` (monotonic sequence number) and `timestamp` (epoch ms).
 | `accountStatusChanged` | Individual SIP account state changed | `accountId`, `name`, `status` |
 | `callQualityUpdate` | Every 5s during active call | `callId`, `quality: "excellent"\|"good"\|"fair"\|"poor"` |
 | `themeChanged` | Dark/light mode toggled | `theme: "light"\|"dark"` |
+| `localeChanged` | Locale/language changed | `locale` |
 | `error` | Global error | `code`, `message`, `severity` |
 
 ### Event Examples
@@ -458,6 +460,10 @@ export function useYallaSIP() {
     reject: useCallback((id: string) => bridge.current?.reject(id), []),
     sendDtmf: useCallback((id: string, digits: string) => bridge.current?.sendDtmf(id, digits), []),
     transferCall: useCallback((id: string, dest: string) => bridge.current?.transferCall(id, dest), []),
+    setMute: useCallback((id: string, muted: boolean) => bridge.current?.setMute(id, muted), []),
+    setHold: useCallback((id: string, onHold: boolean) => bridge.current?.setHold(id, onHold), []),
+    setAgentStatus: useCallback((status: string) => bridge.current?.setAgentStatus(status), []),
+    requestLogout: useCallback(() => bridge.current?.requestLogout(), []),
   };
 }
 ```
@@ -599,7 +605,7 @@ export function createMockBridge() {
 
   return {
     ready: async () => ({ success: true, data: {
-      version: '1.2.0', capabilities: ['call', 'agentStatus', 'dtmf', 'transfer', 'multiSip'],
+      version: '1.2.0', capabilities: ['call', 'agentStatus', 'callQuality', 'dtmf', 'transfer'],
       agent: { id: 'mock', name: 'Test Operator' }, bufferedEvents: [],
     }}),
     on: (event: string, fn: Function) => {
@@ -616,11 +622,12 @@ export function createMockBridge() {
     sendDtmf: async () => ({ success: true, data: null }),
     transferCall: async (_: string, d: string) => ({ success: true, data: { destination: d } }),
     setAgentStatus: async (s: string) => ({ success: true, data: { status: s } }),
+    requestLogout: async () => ({ success: true, data: null }),
     getState: async () => ({
       connection: { state: 'connected', attempt: 0 }, agentStatus: 'ready', call: null,
       accounts: [{ id: '1001@sip.mock', name: 'Test-1', extension: '1001', status: 'connected' }],
     }),
-    getVersion: async () => ({ version: '1.2.0', capabilities: ['call', 'agentStatus', 'dtmf', 'transfer', 'multiSip'] }),
+    getVersion: async () => ({ version: '1.2.0', capabilities: ['call', 'agentStatus', 'callQuality', 'dtmf', 'transfer'] }),
     // Test helper — fire events manually
     simulate: (event: string, data: any) => listeners[event]?.forEach(fn => fn(data)),
   };

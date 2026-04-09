@@ -303,7 +303,7 @@ class BridgeRouter(
     private fun handleGetVersion(): CommandResult {
         val info = BridgeVersionInfo(
             version = SipConstants.APP_VERSION,
-            capabilities = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer", "multiSip"),
+            capabilities = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer"),
         )
         return CommandResult.success(data = bridgeJson.encodeToJsonElement(BridgeVersionInfo.serializer(), info))
     }
