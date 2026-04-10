@@ -45,4 +45,8 @@ object UzStrings : StringResources {
     override val placeholderServer = "sip.example.com"
     override val placeholderUsername = "1001"
     override val placeholderDispatcherUrl = "http://192.168.0.234:5173"
+    override val manualAddAccount = "Qo'shish"
+    override val manualConnectAll = "Hammasini ulash"
+    override val manualNoAccounts = "Account qo'shilmagan"
+    override val manualDuplicateAccount = "Bu account allaqachon qo'shilgan"
 }

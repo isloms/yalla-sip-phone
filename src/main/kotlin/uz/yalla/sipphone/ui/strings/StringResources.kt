@@ -58,6 +58,12 @@ interface StringResources {
     val placeholderServer: String
     val placeholderUsername: String
     val placeholderDispatcherUrl: String
+
+    // Manual Connection
+    val manualAddAccount: String
+    val manualConnectAll: String
+    val manualNoAccounts: String
+    val manualDuplicateAccount: String
 }
 
 val LocalStrings = staticCompositionLocalOf<StringResources> {

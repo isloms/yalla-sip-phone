@@ -45,4 +45,8 @@ object RuStrings : StringResources {
     override val placeholderServer = "sip.example.com"
     override val placeholderUsername = "1001"
     override val placeholderDispatcherUrl = "http://192.168.0.234:5173"
+    override val manualAddAccount = "Добавить"
+    override val manualConnectAll = "Подключить все"
+    override val manualNoAccounts = "Аккаунты не добавлены"
+    override val manualDuplicateAccount = "Этот аккаунт уже добавлен"
 }
