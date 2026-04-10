@@ -257,6 +257,7 @@ class PjsipCallManager(
     }
 
     fun onCallConfirmed(call: PjsipCall) {
+        if (call !== currentCall) return
         val state = _callState.value
         if (state is CallState.Ending) {
             logger.warn { "onCallConfirmed ignored — call already in Ending state" }
@@ -276,6 +277,16 @@ class PjsipCallManager(
     }
 
     fun onCallDisconnected(call: PjsipCall) {
+        // Only reset state if this is our active call — rejected calls (486 Busy)
+        // also fire onCallDisconnected and must not clobber the active call state.
+        if (call !== currentCall) {
+            try {
+                call.safeDelete()
+            } catch (e: Exception) {
+                logger.warn(e) { "Error deleting non-current call object" }
+            }
+            return
+        }
         hangupTimeoutJob?.cancel()
         hangupTimeoutJob = null
         resetCallState()
