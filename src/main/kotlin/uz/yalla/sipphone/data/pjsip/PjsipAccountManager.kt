@@ -1,7 +1,6 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +31,6 @@ interface AccountProvider {
 
 class PjsipAccountManager(
     private val isDestroyed: () -> Boolean,
-    private val pjScope: CoroutineScope,
 ) : AccountProvider {
 
     private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
@@ -104,7 +102,7 @@ class PjsipAccountManager(
             }
             stateFlow.value = PjsipRegistrationState.Registering
 
-            try { prevAccount.delete() } catch (_: Exception) {}
+            prevAccount.safeDelete()
             accounts.remove(accountId)
         }
 
@@ -124,7 +122,7 @@ class PjsipAccountManager(
             accountConfig.natConfig.sipStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
             accountConfig.natConfig.mediaStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
 
-            val account = PjsipAccount(accountId, credentials.server, this, pjScope).apply {
+            val account = PjsipAccount(accountId, credentials.server, this).apply {
                 create(accountConfig, true)
             }
             accounts[accountId] = account
@@ -154,7 +152,7 @@ class PjsipAccountManager(
         } catch (e: Exception) {
             logger.error(e) { "[$accountId] Unregister error" }
         } finally {
-            try { acc.delete() } catch (_: Exception) {}
+            acc.safeDelete()
             accounts.remove(accountId)
             stateFlow.value = PjsipRegistrationState.Idle
         }
@@ -176,9 +174,7 @@ class PjsipAccountManager(
         }
         delay(SipConstants.UNREGISTER_DELAY_MS)
         for ((id, acc) in accountEntries) {
-            try {
-                acc.delete()
-            } catch (_: Exception) {}
+            acc.safeDelete()
         }
         accounts.clear()
         _accountStates.values.forEach { it.value = PjsipRegistrationState.Idle }

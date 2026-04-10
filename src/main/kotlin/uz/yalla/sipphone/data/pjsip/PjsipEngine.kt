@@ -31,7 +31,7 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
 
     private val endpointManager = PjsipEndpointManager(closeableDispatcher)
 
-    val accountManager = PjsipAccountManager(::isDestroyed, pjScope)
+    val accountManager = PjsipAccountManager(::isDestroyed)
 
     private val callManager = PjsipCallManager(
         accountProvider = accountManager,

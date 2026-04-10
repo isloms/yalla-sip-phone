@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -9,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uz.yalla.sipphone.domain.CallEngine
@@ -163,13 +165,19 @@ class PjsipSipAccountManager(
             accountManager.unregisterAll()
         }
 
-        _accounts.value = _accounts.value.map { it.copy(state = SipAccountState.Disconnected) }
+        _accounts.update { list -> list.map { it.copy(state = SipAccountState.Disconnected) } }
         credentialCache.clear()
     }
 
+    fun destroy() {
+        scope.cancel()
+    }
+
     private fun updateAccountState(accountId: String, state: SipAccountState) {
-        _accounts.value = _accounts.value.map { account ->
-            if (account.id == accountId) account.copy(state = state) else account
+        _accounts.update { list ->
+            list.map { account ->
+                if (account.id == accountId) account.copy(state = state) else account
+            }
         }
     }
 

@@ -123,7 +123,7 @@ class PjsipCallManager(
 
         val host = acc.server
         try {
-            val call = PjsipCall(this, acc, scope)
+            val call = PjsipCall(this, acc)
             val uri = SipConstants.buildCallUri(number, host)
             val prm = CallOpParam(true)
             try {
@@ -304,17 +304,18 @@ class PjsipCallManager(
         }
         if (currentCall != null) {
             logger.warn { "Rejecting incoming call on $accountId (already in call)" }
+            val rejectCall = PjsipCall(this, acc, callId)
             try {
-                val call = PjsipCall(this, acc, callId, scope)
-                withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> call.hangup(prm) }
-                call.safeDelete()
+                withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> rejectCall.hangup(prm) }
             } catch (e: Exception) {
                 logger.error(e) { "Failed to reject incoming call" }
+            } finally {
+                rejectCall.safeDelete()
             }
             return
         }
         try {
-            val call = PjsipCall(this, acc, callId, scope)
+            val call = PjsipCall(this, acc, callId)
             currentCall = call
             currentCallId = UUID.randomUUID().toString()
             currentAccountId = accountId
@@ -381,6 +382,7 @@ class PjsipCallManager(
     }
 
     fun connectCallAudio(call: PjsipCall) {
+        if (call !== currentCall) return
         // Reset holdInProgress here — media state callback means re-INVITE completed
         holdInProgress = false
         holdTimeoutJob?.cancel()
