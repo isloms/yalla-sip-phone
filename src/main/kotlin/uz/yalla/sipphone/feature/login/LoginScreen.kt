@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -244,9 +247,7 @@ private fun ManualConnectionDialog(
 
     fun addAccount() {
         val entry = ManualAccountEntry(server, port.toIntOrNull() ?: 5060, username, password)
-        val key = "${entry.username}@${entry.server}:${entry.port}"
-        val exists = accounts.any { "${it.username}@${it.server}:${it.port}" == key }
-        if (exists) {
+        if (accounts.any { it.displayKey == entry.displayKey }) {
             duplicateWarning = true
             return
         }
@@ -270,24 +271,25 @@ private fun ManualConnectionDialog(
                         modifier = Modifier.fillMaxWidth().padding(vertical = tokens.spacingSm),
                     )
                 } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height((accounts.size * 40).coerceAtMost(200).dp),
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        accounts.forEachIndexed { index, entry ->
+                        itemsIndexed(accounts, key = { _, entry -> entry.displayKey }) { index, entry ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    "${entry.username}@${entry.server}:${entry.port}",
+                                    entry.displayKey,
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.weight(1f),
                                 )
                                 IconButton(
-                                    onClick = { accounts = accounts.toMutableList().apply { removeAt(index) } },
+                                    onClick = {
+                                        accounts = accounts.filterIndexed { i, _ -> i != index }
+                                        duplicateWarning = false
+                                    },
                                     modifier = Modifier.size(24.dp),
                                     enabled = !isLoading,
                                 ) {

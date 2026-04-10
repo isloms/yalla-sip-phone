@@ -27,7 +27,10 @@ data class ManualAccountEntry(
     val port: Int,
     val username: String,
     val password: String,
-)
+) {
+    val displayKey: String get() = "$username@$server:$port"
+    override fun toString(): String = "ManualAccountEntry($displayKey, password=***)"
+}
 
 enum class LoginErrorType {
     WRONG_PASSWORD,
