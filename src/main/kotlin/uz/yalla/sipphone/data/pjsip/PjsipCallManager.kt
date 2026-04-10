@@ -48,7 +48,9 @@ class PjsipCallManager(
         statusCode: Int = 200,
         block: (CallOpParam) -> R,
     ): R {
-        val prm = CallOpParam()
+        // useDefaultCallSetting=true ensures opt.audioCount=1 and other defaults.
+        // Without this, reinvite() gets audioCount=0 → empty SDP → local 488 rejection.
+        val prm = CallOpParam(true)
         prm.statusCode = statusCode
         return try {
             block(prm)
