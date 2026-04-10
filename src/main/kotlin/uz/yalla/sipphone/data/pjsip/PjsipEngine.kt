@@ -73,7 +73,8 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
                 endpointManager.stopPolling()
                 endpointManager.destroy()
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Catch Exception + NoClassDefFoundError (./gradlew run classpath issue)
             logger.warn(e) { "Error during pjsip shutdown" }
         } finally {
             pjScope.cancel()
