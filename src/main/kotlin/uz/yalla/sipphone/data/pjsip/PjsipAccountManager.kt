@@ -131,7 +131,7 @@ class PjsipAccountManager(
             accountConfig.natConfig.sipStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
             accountConfig.natConfig.mediaStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
 
-            val account = PjsipAccount(accountId, this, pjScope).apply {
+            val account = PjsipAccount(accountId, credentials.server, this, pjScope).apply {
                 create(accountConfig, true)
             }
             accounts[accountId] = account

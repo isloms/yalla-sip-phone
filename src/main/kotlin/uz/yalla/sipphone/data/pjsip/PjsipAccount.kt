@@ -13,6 +13,7 @@ private val logger = KotlinLogging.logger {}
 
 class PjsipAccount(
     val accountId: String,
+    val server: String,
     private val accountManager: PjsipAccountManager,
     private val pjScope: CoroutineScope,
 ) : Account() {
