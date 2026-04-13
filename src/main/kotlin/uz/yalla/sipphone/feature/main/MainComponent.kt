@@ -9,6 +9,7 @@ import uz.yalla.sipphone.data.jcef.BridgeRouter
 import uz.yalla.sipphone.data.jcef.BridgeSecurity
 import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.JcefManager
+import uz.yalla.sipphone.data.update.UpdateManager
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
@@ -26,6 +27,7 @@ class MainComponent(
     private val eventEmitter: BridgeEventEmitter,
     private val security: BridgeSecurity,
     private val auditLog: BridgeAuditLog,
+    val updateManager: UpdateManager,
     private val onLogout: () -> Unit,
 ) : ComponentContext by componentContext {
 

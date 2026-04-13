@@ -20,6 +20,17 @@ import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
 import uz.yalla.sipphone.data.jcef.BridgeSecurity
 import uz.yalla.sipphone.data.jcef.JcefManager
+import uz.yalla.sipphone.data.update.DownloadResult
+import uz.yalla.sipphone.data.update.InstallerContract
+import uz.yalla.sipphone.data.update.UpdateApiContract
+import uz.yalla.sipphone.data.update.UpdateCheckResult
+import uz.yalla.sipphone.data.update.UpdateDownloaderContract
+import uz.yalla.sipphone.data.update.UpdateManager
+import uz.yalla.sipphone.data.update.UpdatePaths
+import uz.yalla.sipphone.domain.update.UpdateChannel
+import uz.yalla.sipphone.domain.update.UpdateRelease
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
@@ -78,6 +89,42 @@ class RootComponentTest {
         authEventBus = authEventBus,
     )
 
+    private fun stubUpdateManager(): UpdateManager {
+        val tmpRoot = java.nio.file.Files.createTempDirectory("root-test-update").also {
+            Runtime.getRuntime().addShutdownHook(Thread { it.toFile().deleteRecursively() })
+        }
+        val noopApi = object : UpdateApiContract {
+            override suspend fun check(
+                channel: UpdateChannel,
+                currentVersion: String,
+                installId: String,
+                platform: String,
+            ): UpdateCheckResult = UpdateCheckResult.NoUpdate
+        }
+        val noopDownloader = object : UpdateDownloaderContract {
+            override suspend fun download(release: UpdateRelease): DownloadResult = DownloadResult.Failed(null)
+        }
+        val noopInstaller = object : InstallerContract {
+            override fun install(
+                msiPath: java.nio.file.Path,
+                expectedSha256: String,
+                logPath: java.nio.file.Path,
+            ) = Unit
+        }
+        return UpdateManager(
+            scope = CoroutineScope(SupervisorJob() + testDispatcher),
+            api = noopApi,
+            downloader = noopDownloader,
+            installer = noopInstaller,
+            paths = UpdatePaths(rootOverride = tmpRoot),
+            callState = fakeCallEngine.callState,
+            currentVersion = "1.0.0",
+            channelProvider = { UpdateChannel.STABLE },
+            installIdProvider = { "test-install-id" },
+            exitProcess = { /* no-op */ },
+        )
+    }
+
     private val logoutOrchestrator = LogoutOrchestrator(
         sipAccountManager = fakeSipAccountManager,
         authApi = fakeAuthApi,
@@ -113,6 +160,7 @@ class RootComponentTest {
                 eventEmitter = BridgeEventEmitter(auditLog = BridgeAuditLog()),
                 security = BridgeSecurity(),
                 auditLog = BridgeAuditLog(),
+                updateManager = stubUpdateManager(),
                 onLogout = onLogout,
             )
         }

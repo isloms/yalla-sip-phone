@@ -6,6 +6,7 @@ import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
 import uz.yalla.sipphone.data.jcef.BridgeSecurity
 import uz.yalla.sipphone.data.jcef.JcefManager
+import uz.yalla.sipphone.data.update.UpdateManager
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.SipAccountManager
@@ -20,6 +21,7 @@ class ComponentFactoryImpl(
     private val eventEmitter: BridgeEventEmitter,
     private val security: BridgeSecurity,
     private val auditLog: BridgeAuditLog,
+    private val updateManager: UpdateManager,
 ) : ComponentFactory {
 
     override fun createLogin(
@@ -45,6 +47,7 @@ class ComponentFactoryImpl(
         eventEmitter = eventEmitter,
         security = security,
         auditLog = auditLog,
+        updateManager = updateManager,
         onLogout = onLogout,
     )
 }

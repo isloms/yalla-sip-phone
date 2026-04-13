@@ -214,19 +214,10 @@ private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent
             event.consume()
         }
         ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_D -> {
-            // Hidden diagnostics toggle (Ctrl+Shift+Alt+D) — logs snapshot.
+            // Hidden diagnostics toggle (Ctrl+Shift+Alt+D) — shows the in-app panel.
             val um: UpdateManager =
                 org.koin.java.KoinJavaComponent.get(UpdateManager::class.java)
-            val settings: AppSettings =
-                org.koin.java.KoinJavaComponent.get(AppSettings::class.java)
-            logger.info {
-                "=== UPDATE DIAGNOSTICS ===\n" +
-                    "installId=${settings.installId}\n" +
-                    "channel=${settings.updateChannel}\n" +
-                    "state=${um.state.value}\n" +
-                    "lastCheck=${um.lastCheckMillis()}\n" +
-                    "lastError=${um.lastErrorMessage()}\n"
-            }
+            um.toggleDiagnostics()
             event.consume()
         }
     }

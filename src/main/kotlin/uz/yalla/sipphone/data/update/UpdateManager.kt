@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import java.nio.file.FileStore
+import java.nio.file.Files
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import uz.yalla.sipphone.domain.CallState
@@ -88,6 +90,17 @@ class UpdateManager(
 
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state: StateFlow<UpdateState> = _state.asStateFlow()
+
+    private val _diagnosticsVisible = MutableStateFlow(false)
+    val diagnosticsVisible: StateFlow<Boolean> = _diagnosticsVisible.asStateFlow()
+
+    fun toggleDiagnostics() {
+        _diagnosticsVisible.value = !_diagnosticsVisible.value
+    }
+
+    fun hideDiagnostics() {
+        _diagnosticsVisible.value = false
+    }
 
     private val running = AtomicBoolean(false)
     private var loopJob: Job? = null
@@ -212,6 +225,19 @@ class UpdateManager(
             return
         }
 
+        // I4: pre-flight disk space. size × 2 covers .part + final .msi + bootstrapper quarantine.
+        if (!hasEnoughDisk(release.installer.size * 2)) {
+            lastError = "insufficient disk space for ${release.installer.size * 2} bytes"
+            logger.warn { lastError!! }
+            _state.value = UpdateState.Failed(
+                UpdateState.Failed.Stage.DISK_FULL,
+                "size * 2 = ${release.installer.size * 2} bytes required",
+            )
+            delay(1500)
+            if (_state.value is UpdateState.Failed) _state.value = UpdateState.Idle
+            return
+        }
+
         _state.value = UpdateState.Downloading(release, 0, release.installer.size)
         val dl = downloader.download(release)
         when (dl) {
@@ -244,4 +270,15 @@ class UpdateManager(
     }
 
     private fun jitterDelay(): Long = pollIntervalMillis + (0 until 600_000L).random()
+
+    /**
+     * I4: pre-flight disk check on the filesystem hosting the updates dir.
+     * Returns true (don't block) if we can't query the filesystem — failing
+     * open rather than stranding the operator on an old version because of
+     * an obscure API problem.
+     */
+    private fun hasEnoughDisk(neededBytes: Long): Boolean = runCatching {
+        val store: FileStore = Files.getFileStore(paths.updatesDir)
+        store.usableSpace >= neededBytes
+    }.getOrDefault(true)
 }
