@@ -116,6 +116,17 @@ compose.desktop {
                 }
                 entitlementsFile.set(project.file("src/main/resources/entitlements.plist"))
             }
+
+            windows {
+                // Pinned UpgradeCode — NEVER change. Without it, every install is
+                // side-by-side instead of an upgrade (spec §5 invariant I19).
+                upgradeUuid = "E7A4F1B2-9C5D-4E8A-B1F6-2D3E4F5A6B7C"
+                // Per-user install to %LOCALAPPDATA%\YallaSipPhone — no admin / UAC (spec Q1).
+                perUserInstall = true
+                menuGroup = "Yalla"
+                shortcut = true
+                menu = true
+            }
         }
     }
 }

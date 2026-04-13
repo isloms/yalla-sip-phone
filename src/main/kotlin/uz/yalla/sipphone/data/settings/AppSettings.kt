@@ -32,4 +32,18 @@ class AppSettings {
             password = "",
         )
     }
+
+    var updateChannel: String
+        get() = settings.getString("update_channel", "stable")
+        set(value) = settings.putString("update_channel", value)
+
+    /** Stable anonymous per-machine UUID, lazily generated on first access (spec Q6). */
+    val installId: String
+        get() {
+            val existing = settings.getStringOrNull("install_id")
+            if (existing != null) return existing
+            val fresh = java.util.UUID.randomUUID().toString()
+            settings.putString("install_id", fresh)
+            return fresh
+        }
 }

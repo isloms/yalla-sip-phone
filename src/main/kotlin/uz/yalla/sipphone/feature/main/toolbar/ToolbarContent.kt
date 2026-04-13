@@ -25,8 +25,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import uz.yalla.sipphone.data.update.UpdateManager
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.feature.main.update.UpdateBadge
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
@@ -39,6 +41,8 @@ fun ToolbarContent(
     onThemeToggle: () -> Unit,
     onLocaleChange: (String) -> Unit,
     onLogout: () -> Unit,
+    updateManager: UpdateManager? = null,
+    onUpdateBadgeClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val tokens = LocalAppTokens.current
@@ -122,6 +126,13 @@ fun ToolbarContent(
             Spacer(Modifier.width(tokens.toolbarZoneGap))
             VerticalDivider()
             Spacer(Modifier.width(tokens.toolbarZoneGap))
+
+            if (updateManager != null) {
+                UpdateBadge(
+                    state = updateManager.state,
+                    onClick = onUpdateBadgeClick,
+                )
+            }
 
             IconButton(
                 onClick = {
