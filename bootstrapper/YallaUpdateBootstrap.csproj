@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- TFM is plain net8.0 (not net8.0-windows) because Program.cs only uses
+         cross-platform System.* APIs. This lets us cross-compile from macOS/Linux
+         to win-x64 without the Windows Desktop workload. -->
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>YallaUpdateBootstrap</RootNamespace>
     <AssemblyName>yalla-update-bootstrap</AssemblyName>
     <Nullable>enable</Nullable>
