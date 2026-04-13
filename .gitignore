@@ -14,3 +14,8 @@ nonWebMain/
 .superpowers/
 jcef-bundle/
 Task
+
+# C# bootstrapper build artifacts
+bootstrapper/bin/
+bootstrapper/obj/
+src/main/resources/bootstrapper/*.exe
