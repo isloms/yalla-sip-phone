@@ -16,3 +16,7 @@ bootstrapper/obj/
 # Note: src/main/resources/bootstrapper/yalla-update-bootstrap.exe IS committed
 # (171 KB, rebuilt on release by CI or `dotnet publish`). This lets dev machines
 # run `./gradlew packageMsi` without needing .NET installed.
+
+# runtime logs (yalla-sip-phone debug output, Windows dev)
+debug.log
+run-log*.txt
