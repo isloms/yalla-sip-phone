@@ -86,8 +86,20 @@ class UpdateManifestTest {
     }
 
     @Test
-    fun `validate rejects http url`() {
-        val r = fakeRelease(url = "http://downloads.yalla.uz/a.msi")
+    fun `validate accepts http url for LAN deployment`() {
+        val r = fakeRelease(url = "http://192.168.0.98/a.msi")
+        assertTrue(ManifestValidator.validate(r) is ManifestValidation.Valid)
+    }
+
+    @Test
+    fun `validate accepts https url`() {
+        val r = fakeRelease(url = "https://downloads.yalla.uz/a.msi")
+        assertTrue(ManifestValidator.validate(r) is ManifestValidation.Valid)
+    }
+
+    @Test
+    fun `validate rejects ftp url`() {
+        val r = fakeRelease(url = "ftp://downloads.yalla.uz/a.msi")
         assertTrue(ManifestValidator.validate(r) is ManifestValidation.Invalid)
     }
 

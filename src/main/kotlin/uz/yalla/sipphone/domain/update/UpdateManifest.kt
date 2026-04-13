@@ -34,9 +34,14 @@ data class UpdateInstaller(
 /**
  * Allow-list of hosts the client will download MSIs from. Hard-coded
  * in source — the single strongest cert-free defense against the `url`
- * field pointing off-domain. TODO(OQ2): confirm final hosts with backend.
+ * field pointing off-domain.
+ *
+ * `192.168.0.98` is the current dispatcher backend that hosts both the
+ * manifest endpoint AND the MSI files (RoyalTaxi convention). Other
+ * entries are reserved for future production hosts.
  */
 internal val UPDATE_URL_ALLOWLIST: List<String> = listOf(
+    "192.168.0.98",
     "downloads.yalla.uz",
     "updates.yalla.local",
 )
@@ -79,8 +84,11 @@ object ManifestValidator {
 
         val uri = runCatching { URI(release.installer.url) }.getOrNull()
             ?: return ManifestValidation.Invalid("url not parseable: ${release.installer.url}")
-        if (uri.scheme != "https") {
-            return ManifestValidation.Invalid("url must be https, got ${uri.scheme}")
+        // Both http and https are accepted: deployment is LAN-only, the backend
+        // serves over plaintext http on an internal IP, and SHA256 remains the
+        // integrity check. TLS adds friction without adding security here.
+        if (uri.scheme != "https" && uri.scheme != "http") {
+            return ManifestValidation.Invalid("url must be http or https, got ${uri.scheme}")
         }
         val host = uri.host ?: return ManifestValidation.Invalid("url has no host: ${release.installer.url}")
         if (host !in UPDATE_URL_ALLOWLIST) {

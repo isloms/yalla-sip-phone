@@ -7,6 +7,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import uz.yalla.sipphone.data.network.ApiResponse
 import uz.yalla.sipphone.domain.update.ManifestValidation
 import uz.yalla.sipphone.domain.update.ManifestValidator
 import uz.yalla.sipphone.domain.update.UpdateChannel
@@ -23,8 +24,9 @@ sealed interface UpdateCheckResult {
 }
 
 /**
- * Calls `GET {baseUrl}app-updates/latest` with the headers mandated by spec §6.1.
- * Returns a typed [UpdateCheckResult] — never throws.
+ * Calls `GET {baseUrl}app-updates/latest` with the headers mandated by spec §6.1
+ * and unwraps the RoyalTaxi standard `ApiResponse<T>` envelope before extracting
+ * the [UpdateEnvelope] payload. Returns a typed [UpdateCheckResult] — never throws.
  */
 class UpdateApi(
     private val client: HttpClient,
@@ -56,12 +58,24 @@ class UpdateApi(
             return UpdateCheckResult.Error(null)
         }
 
-        val envelope: UpdateEnvelope = try {
-            response.body()
+        // Backend wraps every endpoint in {status, code, message, result, errors}.
+        // We deserialize that wrapper, then read the inner UpdateEnvelope.
+        // Explicit reified type — without it Ktor cannot resolve the inner T
+        // serializer because this function is not inline.
+        val wrapped: ApiResponse<UpdateEnvelope> = try {
+            response.body<ApiResponse<UpdateEnvelope>>()
         } catch (t: Throwable) {
             logger.warn(t) { "Update check malformed JSON" }
             return UpdateCheckResult.Malformed("unparseable JSON: ${t.message}")
         }
+
+        if (!wrapped.status) {
+            logger.warn { "Update check failed envelope: ${wrapped.message}" }
+            return UpdateCheckResult.Error(null)
+        }
+
+        val envelope = wrapped.result
+            ?: return UpdateCheckResult.NoUpdate
 
         if (!envelope.updateAvailable || envelope.release == null) {
             return UpdateCheckResult.NoUpdate
