@@ -58,6 +58,36 @@ interface StringResources {
     val placeholderServer: String
     val placeholderUsername: String
     val placeholderDispatcherUrl: String
+
+    // Update
+    val updateAvailableBadge: String
+    val updateAvailableDialogTitle: String
+    val updateInstallButton: String
+    val updateLaterButton: String
+    val updateWaitingForCallMessage: String
+    val updateDownloadingMessage: String
+    val updateVerifyingMessage: String
+    val updateInstallingMessage: String
+    val updateFailedVerify: String
+    val updateFailedDownload: String
+    val updateFailedDisk: String
+    val updateFailedUntrustedUrl: String
+    val updateFailedMalformedManifest: String
+    val updateReleaseNotesHeader: String
+    val updateCurrentVersion: String
+    val updateChannelSwitchedStable: String
+    val updateChannelSwitchedBeta: String
+    val updateForcedUpgradeRequired: String
+    val updateDiagnosticsTitle: String
+    val updateDiagnosticsCopy: String
+    val updateDiagnosticsCopied: String
+    val updateDiagnosticsClose: String
+    val updateDiagnosticsLastCheck: String
+    val updateDiagnosticsLastError: String
+    val updateDiagnosticsLogTail: String
+    val updateDiagnosticsInstallId: String
+    val updateDiagnosticsChannel: String
+    val updateDiagnosticsState: String
 }
 
 val LocalStrings = staticCompositionLocalOf<StringResources> {

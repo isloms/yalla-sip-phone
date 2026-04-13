@@ -14,3 +14,10 @@ nonWebMain/
 .superpowers/
 jcef-bundle/
 Task
+
+# C# bootstrapper build artifacts
+bootstrapper/bin/
+bootstrapper/obj/
+# Note: src/main/resources/bootstrapper/yalla-update-bootstrap.exe IS committed
+# (171 KB, rebuilt on release by CI or `dotnet publish`). This lets dev machines
+# run `./gradlew packageMsi` without needing .NET installed.
