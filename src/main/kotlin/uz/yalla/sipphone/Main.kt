@@ -29,6 +29,7 @@ import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.data.auth.AuthEventBus
 import uz.yalla.sipphone.data.auth.LogoutOrchestrator
 import uz.yalla.sipphone.data.jcef.JcefManager
+import uz.yalla.sipphone.data.update.UpdateManager
 import uz.yalla.sipphone.di.appModules
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipConstants
@@ -51,6 +52,9 @@ fun main() {
 
     val koin = startKoin { modules(appModules) }.koin
 
+    val updateManager: UpdateManager = koin.get()
+    updateManager.start()
+
     val lifecycle: SipStackLifecycle = koin.get()
     val initResult = runBlocking { lifecycle.initialize() }
 
@@ -70,6 +74,7 @@ fun main() {
     val jcefShutdownDone = AtomicBoolean(false)
 
     fun gracefulShutdown() {
+        updateManager.stop()
         runBlocking {
             withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
         }
@@ -198,6 +203,30 @@ private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent
         }
         ctrl && !shift && event.keyCode == KeyEvent.VK_L && callState is CallState.Idle -> {
             toolbar.requestPhoneInputFocus()
+            event.consume()
+        }
+        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_B -> {
+            // Hidden channel toggle (Ctrl+Shift+Alt+B) — cycles stable ↔ beta.
+            val settings: AppSettings =
+                org.koin.java.KoinJavaComponent.get(AppSettings::class.java)
+            settings.updateChannel = if (settings.updateChannel == "beta") "stable" else "beta"
+            logger.info { "Update channel toggled: ${settings.updateChannel}" }
+            event.consume()
+        }
+        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_D -> {
+            // Hidden diagnostics toggle (Ctrl+Shift+Alt+D) — logs snapshot.
+            val um: UpdateManager =
+                org.koin.java.KoinJavaComponent.get(UpdateManager::class.java)
+            val settings: AppSettings =
+                org.koin.java.KoinJavaComponent.get(AppSettings::class.java)
+            logger.info {
+                "=== UPDATE DIAGNOSTICS ===\n" +
+                    "installId=${settings.installId}\n" +
+                    "channel=${settings.updateChannel}\n" +
+                    "state=${um.state.value}\n" +
+                    "lastCheck=${um.lastCheckMillis()}\n" +
+                    "lastError=${um.lastErrorMessage()}\n"
+            }
             event.consume()
         }
     }
