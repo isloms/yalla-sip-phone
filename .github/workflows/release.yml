@@ -59,15 +59,29 @@ jobs:
           # Semver.parse() rejects anything matching /^v/, so the tag name
           # must be stripped before being pasted into the manifest payload.
           $version = "${{ github.ref_name }}" -replace '^v', ''
+          # minSupportedVersion is a business policy ("force-upgrade floor"),
+          # read from the MIN_SUPPORTED_VERSION file at the repo root. The
+          # release manager updates that file when a force-upgrade is needed;
+          # normal patch releases leave it alone.
+          $minSupportedFile = Join-Path $env:GITHUB_WORKSPACE 'MIN_SUPPORTED_VERSION'
+          if (-not (Test-Path $minSupportedFile)) {
+            throw "MIN_SUPPORTED_VERSION file missing at repo root — required for release notes template"
+          }
+          $minSupported = (Get-Content $minSupportedFile -Raw).Trim()
+          if ($minSupported -notmatch '^\d+\.\d+\.\d+$') {
+            throw "MIN_SUPPORTED_VERSION must be strict semver (MAJOR.MINOR.PATCH), got: '$minSupported'"
+          }
           Write-Host "MSI: $name"
           Write-Host "SHA256: $sha"
           Write-Host "Size: $size bytes"
           Write-Host "Version: $version"
-          "msi_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "msi_name=$name"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "sha256=$sha"               | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "size=$size"                | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "version=$version"          | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "MinSupportedVersion: $minSupported"
+          "msi_path=$($msi.FullName)"       | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "msi_name=$name"                  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sha256=$sha"                     | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "size=$size"                      | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "version=$version"                | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "min_supported_version=$minSupported" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Upload MSI as workflow artifact
         uses: actions/upload-artifact@v4
@@ -93,7 +107,7 @@ jobs:
             ```json
             {
               "version": "${{ steps.meta.outputs.version }}",
-              "minSupportedVersion": "1.0.0",
+              "minSupportedVersion": "${{ steps.meta.outputs.min_supported_version }}",
               "releaseNotes": "...",
               "installer": {
                 "url": "http://192.168.0.98:8080/releases/${{ steps.meta.outputs.msi_name }}",
