@@ -121,11 +121,13 @@ dependencies {
 
     // pjsip JNI bindings — SWIG-generated jars differ per OS.
     // Keep a mac/ and windows/ copy in libs/ and pick the one for the current host.
+    // Linux isn't a supported runtime target, but CI runs on ubuntu-latest and only
+    // compiles Kotlin + runs fake-based tests — never loads the native lib — so the
+    // mac jar's bytecode is sufficient for classpath resolution on Linux.
     implementation(files(
         when {
-            org.gradle.internal.os.OperatingSystem.current().isMacOsX -> "libs/mac/pjsua2.jar"
             org.gradle.internal.os.OperatingSystem.current().isWindows -> "libs/windows/pjsua2.jar"
-            else -> error("Unsupported OS for pjsua2.jar: ${org.gradle.internal.os.OperatingSystem.current()}")
+            else -> "libs/mac/pjsua2.jar"
         }
     ))
 
