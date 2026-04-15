@@ -54,7 +54,7 @@ Full pipeline per global CLAUDE.md. Project-specific VERIFY for this repo:
 **Note**: `ktlint`, `detekt`, and `jacoco` are **NOT currently wired up** in `build.gradle.kts`. Running `./gradlew ktlintCheck` fails with "task not found". The `.claude/settings.json` PostToolUse hook calls `ktlint --format <file>` against a standalone ktlint binary — it's a no-op if the binary isn't installed globally. Add the plugins before relying on lint as a VERIFY step.
 
 **Manual smoke test** (cannot be automated):
-- Launch via `./gradlew run` or `./gradlew runDemo`
+- Launch via `./gradlew run`, `./gradlew runSipDemo`, or `./gradlew runUpdateDemo`
 - Login to a test account (test extensions: 101, 102, 103)
 - Register one SIP account → verify registration state
 - Make a test call to another extension
@@ -64,7 +64,8 @@ Full pipeline per global CLAUDE.md. Project-specific VERIFY for this repo:
 ```bash
 # Run in dev mode
 ./gradlew run                            # production-like run (real PJSIP)
-./gradlew runDemo                        # visual demo with fake SIP engines
+./gradlew runSipDemo                     # visual SIP demo (fake engines, busy-operator day)
+./gradlew runUpdateDemo                  # visual update-UI demo (all states + failure catalog)
 ./gradlew run --info                     # verbose output
 
 # Build distribution for current OS
