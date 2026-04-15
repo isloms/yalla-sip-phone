@@ -119,8 +119,17 @@ dependencies {
     // JCEF — Chromium embedded browser (auto-downloads native binaries)
     implementation("me.friwi:jcefmaven:122.1.10")
 
-    // pjsip JNI bindings
-    implementation(files("libs/pjsua2.jar"))
+    // pjsip JNI bindings — SWIG-generated jars differ per OS.
+    // Keep a mac/ and windows/ copy in libs/ and pick the one for the current host.
+    // Linux isn't a supported runtime target, but CI runs on ubuntu-latest and only
+    // compiles Kotlin + runs fake-based tests — never loads the native lib — so the
+    // mac jar's bytecode is sufficient for classpath resolution on Linux.
+    implementation(files(
+        when {
+            org.gradle.internal.os.OperatingSystem.current().isWindows -> "libs/windows/pjsua2.jar"
+            else -> "libs/mac/pjsua2.jar"
+        }
+    ))
 
     // Test
     testImplementation(kotlin("test"))
@@ -137,11 +146,23 @@ tasks.matching { it.name == "run" }.configureEach {
     }
 }
 
-tasks.register<JavaExec>("runDemo") {
+tasks.register<JavaExec>("runSipDemo") {
     group = "demo"
     description = "Run visual demo with fake SIP engines simulating a busy operator day"
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("uz.yalla.sipphone.demo.DemoMainKt")
+    jvmArgs(
+        "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
+        "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
+    )
+}
+
+tasks.register<JavaExec>("runUpdateDemo") {
+    group = "demo"
+    description = "Run visual demo of the auto-update UI — all states, failure modes, and interactions"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("uz.yalla.sipphone.demo.update.UpdateDemoMainKt")
     jvmArgs(
         "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
         "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",

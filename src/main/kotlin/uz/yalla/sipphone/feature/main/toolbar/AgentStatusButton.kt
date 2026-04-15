@@ -56,7 +56,7 @@ fun AgentStatusButton(
     val displayStatus = currentStatus.toDisplayStatus()
 
     fun dotColor(status: DisplayAgentStatus): Color = when (status) {
-        DisplayAgentStatus.ONLINE -> colors.brandPrimary
+        DisplayAgentStatus.ONLINE -> colors.statusOnline
         DisplayAgentStatus.BUSY -> colors.statusWarning
         DisplayAgentStatus.OFFLINE -> colors.textSubtle
     }
