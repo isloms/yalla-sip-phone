@@ -25,6 +25,7 @@ data class YallaColors(
     val errorText: Color,
     val destructive: Color,
     val statusWarning: Color,
+    val statusOnline: Color,
     // Surfaces
     val surfaceMuted: Color,
     // Icons
@@ -52,6 +53,7 @@ data class YallaColors(
             errorText = Color(0xFFF42500),
             destructive = Color(0xFFF42500),
             statusWarning = Color(0xFFFF234B),
+            statusOnline = Color(0xFF16A34A),
             surfaceMuted = Color(0xFFF7F7F7),
             iconSubtle = Color(0xFF98A2B3),
             callReady = Color(0xFF2E7D32),
@@ -76,6 +78,7 @@ data class YallaColors(
             errorText = Color(0xFFF42500),
             destructive = Color(0xFFF42500),
             statusWarning = Color(0xFFFF234B),
+            statusOnline = Color(0xFF22C55E),
             surfaceMuted = Color(0xFF2C2D34),
             iconSubtle = Color(0xFF98A2B3),
             callReady = Color(0xFF66BB6A),

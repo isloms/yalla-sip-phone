@@ -73,7 +73,7 @@ private fun SipChip(
         is SipAccountState.Disconnected -> strings.sipDisconnected
     }
     val statusColor = when (account.state) {
-        is SipAccountState.Connected -> colors.brandPrimary
+        is SipAccountState.Connected -> colors.statusOnline
         is SipAccountState.Reconnecting -> colors.statusWarning
         is SipAccountState.Disconnected -> colors.destructive
     }
@@ -129,9 +129,9 @@ private fun resolveChipStyle(
     isActiveCall -> ChipStyle(colors.brandPrimary, colors.brandPrimary, Color.White)
     isMutedByCall && state is SipAccountState.Connected -> ChipStyle(colors.surfaceMuted, colors.borderDefault, colors.textSubtle)
     state is SipAccountState.Connected -> ChipStyle(
-        colors.brandPrimary.copy(alpha = tokens.alphaMuted),
-        colors.brandPrimary.copy(alpha = tokens.alphaMedium),
-        colors.brandLight,
+        colors.statusOnline.copy(alpha = tokens.alphaMuted),
+        colors.statusOnline.copy(alpha = tokens.alphaMedium),
+        colors.statusOnline,
     )
     state is SipAccountState.Reconnecting -> ChipStyle(
         colors.statusWarning.copy(alpha = tokens.alphaSubtle),

@@ -74,7 +74,7 @@ val tokens = LocalAppTokens.current
 Text(text = "Hello", color = colors.brandPrimary, fontSize = tokens.fontSizeBody)
 ```
 
-Available color slots on `YallaColors` (data class): `brandPrimary`, `brandPrimaryMuted`, `brandPrimaryText`, `brandLight`, `backgroundBase`, `backgroundSecondary`, `backgroundTertiary`, `textBase`, `textSubtle`, `borderDefault`, `borderStrong`, `errorText`, `destructive`, `statusWarning`, `surfaceMuted`, `iconSubtle`, `callReady`, `callIncoming`, `callMuted`, `callOffline`, `callWrapUp`. Light / Dark variants live in `YallaColors.Light` / `YallaColors.Dark` companion objects (provided via `Theme.kt`).
+Available color slots on `YallaColors` (data class): `brandPrimary`, `brandPrimaryMuted`, `brandPrimaryText`, `brandLight`, `backgroundBase`, `backgroundSecondary`, `backgroundTertiary`, `textBase`, `textSubtle`, `borderDefault`, `borderStrong`, `errorText`, `destructive`, `statusWarning`, `statusOnline`, `surfaceMuted`, `iconSubtle`, `callReady`, `callIncoming`, `callMuted`, `callOffline`, `callWrapUp`. Light / Dark variants live in `YallaColors.Light` / `YallaColors.Dark` companion objects (provided via `Theme.kt`). Use `statusOnline` (green) for agent "online" dot and SIP "connected" chip — it's the universal success-state color; `brandPrimary` (purple) is reserved for brand identity and the *active call* chip.
 
 ## Navigation
 
