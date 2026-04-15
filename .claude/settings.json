@@ -1,0 +1,19 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=\"$CLAUDE_TOOL_INPUT_file_path\"; if [[ \"$file\" == *.kt ]]; then ktlint --format \"$file\" 2>/dev/null || true; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
