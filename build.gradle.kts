@@ -119,8 +119,15 @@ dependencies {
     // JCEF — Chromium embedded browser (auto-downloads native binaries)
     implementation("me.friwi:jcefmaven:122.1.10")
 
-    // pjsip JNI bindings
-    implementation(files("libs/pjsua2.jar"))
+    // pjsip JNI bindings — SWIG-generated jars differ per OS.
+    // Keep a mac/ and windows/ copy in libs/ and pick the one for the current host.
+    implementation(files(
+        when {
+            org.gradle.internal.os.OperatingSystem.current().isMacOsX -> "libs/mac/pjsua2.jar"
+            org.gradle.internal.os.OperatingSystem.current().isWindows -> "libs/windows/pjsua2.jar"
+            else -> error("Unsupported OS for pjsua2.jar: ${org.gradle.internal.os.OperatingSystem.current()}")
+        }
+    ))
 
     // Test
     testImplementation(kotlin("test"))
