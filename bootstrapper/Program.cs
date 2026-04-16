@@ -83,6 +83,16 @@ internal static class Program
                 Log($"WARN: quarantine copy failed: {ex.Message}");
             }
 
+            // Copy MSI out of the install directory BEFORE running msiexec.
+            // The source MSI lives at <installDir>/updates/*.msi. During an
+            // upgrade, WixRemoveFoldersEx nukes the install tree — including
+            // the updates/ folder — while msiexec is still reading the MSI.
+            // This corrupts the package source mid-transaction (SECREPAIR
+            // failure) and causes Error 1316 in ProcessComponents.
+            var tempMsi = Path.Combine(Path.GetTempPath(), Path.GetFileName(opts.MsiPath));
+            File.Copy(opts.MsiPath, tempMsi, overwrite: true);
+            Log($"Copied MSI to temp: {tempMsi}");
+
             Log("Running msiexec...");
             var msiLog = Path.Combine(Path.GetTempPath(), "yalla-update-msiexec.log");
             var psi = new ProcessStartInfo("msiexec.exe")
@@ -91,7 +101,7 @@ internal static class Program
                 CreateNoWindow = true,
             };
             psi.ArgumentList.Add("/i");
-            psi.ArgumentList.Add(opts.MsiPath);
+            psi.ArgumentList.Add(tempMsi);
             psi.ArgumentList.Add("/qn");
             psi.ArgumentList.Add("/norestart");
             psi.ArgumentList.Add("REBOOT=ReallySuppress");
