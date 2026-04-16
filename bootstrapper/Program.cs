@@ -24,6 +24,7 @@ internal static class Program
 {
     private static StreamWriter? _log;
 
+    [STAThread]
     private static int Main(string[] args)
     {
         var opts = ParseArgs(args);
@@ -90,7 +91,7 @@ internal static class Program
                 UseShellExecute = true,
                 Verb = "runas",
             };
-            psi.Arguments = $"/i \"{opts.MsiPath}\" /qn /norestart REBOOT=ReallySuppress /L*v \"{msiLog}\"";
+            psi.Arguments = $"/i \"{opts.MsiPath}\" /qn /norestart REBOOT=ReallySuppress ALLUSERS=1 /L*v \"{msiLog}\"";
 
             // Release install.log before msiexec — it lives inside the install
             // tree and msiexec needs exclusive access to the entire directory.
