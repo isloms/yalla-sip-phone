@@ -16,6 +16,7 @@ import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.SipAccountInfo
+import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.SipAccountManager
 import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.domain.SipCredentials
@@ -48,6 +49,7 @@ class LoginComponent(
     componentContext: ComponentContext,
     private val authRepository: AuthRepository,
     private val sipAccountManager: SipAccountManager,
+    private val appSettings: AppSettings,
     private val onLoginSuccess: (AuthResult) -> Unit,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
@@ -81,8 +83,15 @@ class LoginComponent(
         }
     }
 
-    fun manualConnect(accounts: List<ManualAccountEntry>, dispatcherUrl: String = "", backendUrl: String = "") {
+    fun manualConnect(
+        accounts: List<ManualAccountEntry>,
+        dispatcherUrl: String = "",
+        backendUrl: String = "",
+        pin: String = "",
+    ) {
         if (accounts.isEmpty()) return
+        _loginState.value = LoginState.Loading
+
         val accountInfos = accounts.map { entry ->
             val credentials = SipCredentials(
                 server = entry.server,
@@ -97,15 +106,38 @@ class LoginComponent(
                 credentials = credentials,
             )
         }
-        val authResult = AuthResult(
-            token = "",
-            accounts = accountInfos,
-            dispatcherUrl = dispatcherUrl,
-            backendUrl = backendUrl,
-            agent = AgentInfo("manual", accounts.first().username),
-        )
-        _loginState.value = LoginState.Loading
+
         scope.launch(ioDispatcher) {
+            val resolvedDispatcher = dispatcherUrl.ifBlank { appSettings.dispatcherUrl }
+            val resolvedBackend = backendUrl.ifBlank { appSettings.backendUrl }
+
+            // Authenticate with backend if PIN provided — gets a token for the dispatcher
+            var token = ""
+            var agent = AgentInfo("manual", accounts.first().username)
+            if (pin.isNotBlank()) {
+                val loginResult = authRepository.login(pin)
+                loginResult.fold(
+                    onSuccess = {
+                        token = it.token
+                        agent = it.agent
+                        logger.info { "Backend auth succeeded for manual connect: ${agent.name}" }
+                    },
+                    onFailure = {
+                        val errorType = classifyAuthError(it)
+                        _loginState.value = LoginState.Error(it.message ?: "Login failed", errorType)
+                        logger.warn { "Backend auth failed for manual connect: ${it.message}" }
+                        return@launch
+                    },
+                )
+            }
+
+            val authResult = AuthResult(
+                token = token,
+                accounts = accountInfos,
+                dispatcherUrl = resolvedDispatcher,
+                backendUrl = resolvedBackend,
+                agent = agent,
+            )
             registerAndNavigate(authResult, accountInfos)
         }
     }

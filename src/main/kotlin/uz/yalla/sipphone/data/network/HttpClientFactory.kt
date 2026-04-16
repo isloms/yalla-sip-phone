@@ -15,7 +15,6 @@ import uz.yalla.sipphone.data.auth.TokenProvider
 private val logger = KotlinLogging.logger {}
 
 fun createHttpClient(
-    baseUrlProvider: () -> String,
     tokenProvider: TokenProvider,
 ): HttpClient = HttpClient(CIO) {
 
@@ -47,7 +46,6 @@ fun createHttpClient(
     }
 
     defaultRequest {
-        url(baseUrlProvider())
         contentType(ContentType.Application.Json)
     }
 

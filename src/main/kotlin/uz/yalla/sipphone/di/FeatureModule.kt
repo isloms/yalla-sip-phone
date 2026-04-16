@@ -9,6 +9,7 @@ val featureModule = module {
         ComponentFactoryImpl(
             authRepository = get(),
             sipAccountManager = get(),
+            appSettings = get(),
             callEngine = get(),
             jcefManager = get(),
             eventEmitter = get(),

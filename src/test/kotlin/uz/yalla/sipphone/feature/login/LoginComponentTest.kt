@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.data.auth.MockAuthRepository
+import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.feature.login.ManualAccountEntry
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
@@ -40,6 +41,7 @@ class LoginComponentTest {
             componentContext = DefaultComponentContext(lifecycle),
             authRepository = authRepo,
             sipAccountManager = fakeSipAccountManager,
+            appSettings = AppSettings(),
             onLoginSuccess = { navigatedResult = it },
             ioDispatcher = testDispatcher,
             mainDispatcher = testDispatcher,

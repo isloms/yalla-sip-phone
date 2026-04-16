@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.navigation
 
 import com.arkivanov.decompose.ComponentContext
+import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
@@ -16,6 +17,7 @@ import uz.yalla.sipphone.feature.main.MainComponent
 class ComponentFactoryImpl(
     private val authRepository: AuthRepository,
     private val sipAccountManager: SipAccountManager,
+    private val appSettings: AppSettings,
     private val callEngine: CallEngine,
     private val jcefManager: JcefManager,
     private val eventEmitter: BridgeEventEmitter,
@@ -31,6 +33,7 @@ class ComponentFactoryImpl(
         componentContext = context,
         authRepository = authRepository,
         sipAccountManager = sipAccountManager,
+        appSettings = appSettings,
         onLoginSuccess = onLoginSuccess,
     )
 

@@ -7,7 +7,10 @@ import uz.yalla.sipphone.data.auth.LogoutOrchestrator
 import uz.yalla.sipphone.domain.AuthRepository
 
 val authModule = module {
-    single { AuthApi(client = get(), authEventBus = get()) }
+    single {
+        val settings: uz.yalla.sipphone.data.settings.AppSettings = get()
+        AuthApi(client = get(), authEventBus = get(), baseUrlProvider = { settings.backendUrl })
+    }
     single<AuthRepository> { AuthRepositoryImpl(authApi = get(), tokenProvider = get(), appSettings = get()) }
     single { LogoutOrchestrator(get(), get(), get()) }
 }

@@ -9,6 +9,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import uz.yalla.sipphone.data.network.NetworkError
+import uz.yalla.sipphone.data.settings.AppSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -38,11 +39,11 @@ class AuthRepositoryImplTest {
         }
     }
 
-    private val appSettings = uz.yalla.sipphone.data.settings.AppSettings()
+    private val appSettings = AppSettings()
 
     private fun createRepo(handler: MockRequestHandler): AuthRepositoryImpl {
         val client = createClient(handler)
-        val api = AuthApi(client, authEventBus)
+        val api = AuthApi(client, authEventBus, baseUrlProvider = { "http://test-api/" })
         return AuthRepositoryImpl(api, tokenProvider, appSettings)
     }
 

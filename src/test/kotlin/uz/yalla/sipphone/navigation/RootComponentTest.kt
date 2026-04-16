@@ -18,6 +18,7 @@ import uz.yalla.sipphone.data.auth.InMemoryTokenProvider
 import uz.yalla.sipphone.data.auth.LogoutOrchestrator
 import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
+import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.data.jcef.BridgeSecurity
 import uz.yalla.sipphone.data.jcef.JcefManager
 import uz.yalla.sipphone.data.update.DownloadResult
@@ -88,6 +89,7 @@ class RootComponentTest {
     private val fakeAuthApi = AuthApi(
         client = HttpClient(MockEngine { respond("", HttpStatusCode.OK) }),
         authEventBus = authEventBus,
+        baseUrlProvider = { "http://test-api/" },
     )
 
     private fun stubUpdateManager(): UpdateManager {
@@ -143,6 +145,7 @@ class RootComponentTest {
                 componentContext = context,
                 authRepository = fakeAuthRepository,
                 sipAccountManager = fakeSipAccountManager,
+                appSettings = AppSettings(),
                 onLoginSuccess = onLoginSuccess,
                 ioDispatcher = testDispatcher,
                 mainDispatcher = testDispatcher,

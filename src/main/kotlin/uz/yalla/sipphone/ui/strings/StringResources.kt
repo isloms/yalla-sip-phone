@@ -66,6 +66,9 @@ interface StringResources {
     val manualConnectAll: String
     val manualNoAccounts: String
     val manualDuplicateAccount: String
+    val labelPin: String
+    val placeholderPin: String
+    val manualAdvancedSettings: String
 
     // Update
     val updateAvailableBadge: String

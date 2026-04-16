@@ -52,6 +52,9 @@ object RuStrings : StringResources {
     override val manualConnectAll = "Подключить все"
     override val manualNoAccounts = "Аккаунты не добавлены"
     override val manualDuplicateAccount = "Этот аккаунт уже добавлен"
+    override val labelPin = "PIN код"
+    override val placeholderPin = "Введите PIN код бэкенда"
+    override val manualAdvancedSettings = "Дополнительные настройки"
 
     override val updateAvailableBadge = "Доступно обновление"
     override val updateAvailableDialogTitle = "Доступно обновление"

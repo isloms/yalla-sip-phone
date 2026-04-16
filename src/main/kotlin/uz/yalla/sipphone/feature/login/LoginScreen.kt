@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -209,9 +211,9 @@ fun LoginScreen(component: LoginComponent) {
             if (showManualDialog) {
                 ManualConnectionDialog(
                     isLoading = isLoading,
-                    onConnect = { accounts, dispatcherUrl, backendUrl ->
+                    onConnect = { accounts, dispatcherUrl, backendUrl, pin ->
                         showManualDialog = false
-                        component.manualConnect(accounts, dispatcherUrl, backendUrl)
+                        component.manualConnect(accounts, dispatcherUrl, backendUrl, pin)
                     },
                     onDismiss = { showManualDialog = false },
                 )
@@ -227,7 +229,7 @@ fun LoginScreen(component: LoginComponent) {
 @Composable
 private fun ManualConnectionDialog(
     isLoading: Boolean,
-    onConnect: (accounts: List<ManualAccountEntry>, dispatcherUrl: String, backendUrl: String) -> Unit,
+    onConnect: (accounts: List<ManualAccountEntry>, dispatcherUrl: String, backendUrl: String, pin: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tokens = LocalAppTokens.current
@@ -241,6 +243,7 @@ private fun ManualConnectionDialog(
     var password by remember { mutableStateOf("") }
     var dispatcherUrl by remember { mutableStateOf("") }
     var backendUrl by remember { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
     var duplicateWarning by remember { mutableStateOf(false) }
 
     val canAdd = server.isNotBlank() && username.isNotBlank() && !isLoading
@@ -262,66 +265,90 @@ private fun ManualConnectionDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.loginManualConnection) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                // PIN — backend auth identity, top priority
+                var pinVisible by remember { mutableStateOf(false) }
+                OutlinedTextField(
+                    value = pin, onValueChange = { pin = it },
+                    label = { Text(strings.labelPin) },
+                    placeholder = {
+                        Text(strings.placeholderPin, style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
+                    },
+                    visualTransformation = if (pinVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { pinVisible = !pinVisible }, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                if (pinVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null, modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    },
+                    singleLine = true, enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
+                )
+
+                Spacer(Modifier.height(4.dp))
+
                 // Account list
                 if (accounts.isEmpty()) {
                     Text(
                         strings.manualNoAccounts,
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.textSubtle,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = tokens.spacingSm),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         itemsIndexed(accounts, key = { _, entry -> entry.displayKey }) { index, entry ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    entry.displayKey,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.weight(1f),
-                                )
+                                Text(entry.displayKey, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                                 IconButton(
                                     onClick = {
                                         accounts = accounts.filterIndexed { i, _ -> i != index }
                                         duplicateWarning = false
                                     },
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(20.dp),
                                     enabled = !isLoading,
                                 ) {
-                                    Text("x", style = MaterialTheme.typography.bodySmall, color = colors.textSubtle)
+                                    Text("\u00D7", style = MaterialTheme.typography.bodySmall, color = colors.textSubtle)
                                 }
                             }
                         }
                     }
                 }
 
-                // Divider
-                Spacer(Modifier.height(tokens.spacingXs))
-
-                // Add form
-                OutlinedTextField(
-                    value = server, onValueChange = { server = it; duplicateWarning = false },
-                    label = { Text(strings.labelServer) },
-                    placeholder = {
-                        Text(strings.placeholderServer, style = MaterialTheme.typography.bodySmall,
-                            color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
-                    },
-                    singleLine = true, enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
-                )
+                // SIP form — Server + Port row
                 Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
+                    OutlinedTextField(
+                        value = server, onValueChange = { server = it; duplicateWarning = false },
+                        label = { Text(strings.labelServer) },
+                        placeholder = {
+                            Text(strings.placeholderServer, style = MaterialTheme.typography.bodySmall,
+                                color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
+                        },
+                        singleLine = true, enabled = !isLoading,
+                        modifier = Modifier.weight(1f), shape = tokens.shapeMedium,
+                    )
                     OutlinedTextField(
                         value = port, onValueChange = { port = it.filter { c -> c.isDigit() }.take(5) },
                         label = { Text(strings.labelPort) },
                         singleLine = true, enabled = !isLoading,
-                        modifier = Modifier.width(100.dp), shape = tokens.shapeMedium,
+                        modifier = Modifier.width(90.dp), shape = tokens.shapeMedium,
                     )
+                }
+
+                // Username + SIP Password row
+                Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
                     OutlinedTextField(
                         value = username, onValueChange = { username = it; duplicateWarning = false },
                         label = { Text(strings.labelUsername) },
@@ -332,77 +359,74 @@ private fun ManualConnectionDialog(
                         singleLine = true, enabled = !isLoading,
                         modifier = Modifier.weight(1f), shape = tokens.shapeMedium,
                     )
-                }
-                var passwordVisible by remember { mutableStateOf(false) }
-                OutlinedTextField(
-                    value = password, onValueChange = { password = it },
-                    label = { Text(strings.labelPassword) },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }, modifier = Modifier.size(24.dp)) {
-                            Icon(
-                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    },
-                    singleLine = true, enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
-                )
-
-                if (duplicateWarning) {
-                    Text(
-                        strings.manualDuplicateAccount,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.statusWarning,
+                    var passwordVisible by remember { mutableStateOf(false) }
+                    OutlinedTextField(
+                        value = password, onValueChange = { password = it },
+                        label = { Text(strings.labelPassword) },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }, modifier = Modifier.size(20.dp)) {
+                                Icon(
+                                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null, modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        },
+                        singleLine = true, enabled = !isLoading,
+                        modifier = Modifier.weight(1f), shape = tokens.shapeMedium,
                     )
                 }
 
-                // Add button — part of the form
+                if (duplicateWarning) {
+                    Text(strings.manualDuplicateAccount, style = MaterialTheme.typography.bodySmall, color = colors.statusWarning)
+                }
+
                 TextButton(
                     onClick = { addAccount() },
                     enabled = canAdd,
                     modifier = Modifier.align(Alignment.End),
                 ) { Text(strings.manualAddAccount) }
 
-                // Dispatcher URL — session-level, separate from per-account form
-                Spacer(Modifier.height(tokens.spacingXs))
-                OutlinedTextField(
-                    value = dispatcherUrl, onValueChange = { dispatcherUrl = it },
-                    label = { Text(strings.labelDispatcherUrl) },
-                    placeholder = {
-                        Text(strings.placeholderDispatcherUrl, style = MaterialTheme.typography.bodySmall,
-                            color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
-                    },
-                    singleLine = true, enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
-                )
-                OutlinedTextField(
-                    value = backendUrl, onValueChange = { backendUrl = it },
-                    label = { Text(strings.labelBackendUrl) },
-                    placeholder = {
-                        Text(strings.placeholderBackendUrl, style = MaterialTheme.typography.bodySmall,
-                            color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
-                    },
-                    singleLine = true, enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
-                )
+                // Advanced — URLs collapsed by default (have sensible defaults in AppSettings)
+                var showAdvanced by remember { mutableStateOf(false) }
+                TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                    Text(strings.manualAdvancedSettings, style = MaterialTheme.typography.bodySmall, color = colors.textSubtle)
+                }
+                if (showAdvanced) {
+                    OutlinedTextField(
+                        value = dispatcherUrl, onValueChange = { dispatcherUrl = it },
+                        label = { Text(strings.labelDispatcherUrl) },
+                        placeholder = {
+                            Text(strings.placeholderDispatcherUrl, style = MaterialTheme.typography.bodySmall,
+                                color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
+                        },
+                        singleLine = true, enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
+                    )
+                    OutlinedTextField(
+                        value = backendUrl, onValueChange = { backendUrl = it },
+                        label = { Text(strings.labelBackendUrl) },
+                        placeholder = {
+                            Text(strings.placeholderBackendUrl, style = MaterialTheme.typography.bodySmall,
+                                color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
+                        },
+                        singleLine = true, enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
+                    )
+                }
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
-                Button(
-                    onClick = { onConnect(accounts, dispatcherUrl, backendUrl) },
-                    enabled = canConnect,
-                    shape = tokens.shapeMedium,
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(tokens.iconDefault), strokeWidth = 2.dp, color = Color.White)
-                        Spacer(Modifier.width(tokens.spacingSm))
-                    }
-                    Text(strings.manualConnectAll)
+            Button(
+                onClick = { onConnect(accounts, dispatcherUrl, backendUrl, pin) },
+                enabled = canConnect,
+                shape = tokens.shapeMedium,
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(tokens.iconDefault), strokeWidth = 2.dp, color = Color.White)
+                    Spacer(Modifier.width(tokens.spacingSm))
                 }
+                Text(strings.manualConnectAll)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(strings.buttonCancel) } },

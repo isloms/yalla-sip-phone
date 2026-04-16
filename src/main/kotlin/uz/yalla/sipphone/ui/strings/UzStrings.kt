@@ -52,6 +52,9 @@ object UzStrings : StringResources {
     override val manualConnectAll = "Hammasini ulash"
     override val manualNoAccounts = "Account qo'shilmagan"
     override val manualDuplicateAccount = "Bu account allaqachon qo'shilgan"
+    override val labelPin = "PIN kod"
+    override val placeholderPin = "Backend PIN kodni kiriting"
+    override val manualAdvancedSettings = "Kengaytirilgan sozlamalar"
 
     override val updateAvailableBadge = "Yangilanish mavjud"
     override val updateAvailableDialogTitle = "Yangilanish mavjud"
