@@ -84,6 +84,7 @@ fun main() {
     }
 
     Runtime.getRuntime().addShutdownHook(Thread(::gracefulShutdown))
+    updateManager.onBeforeExit = ::gracefulShutdown
 
     val decomposeLifecycle = LifecycleRegistry()
     val factory: ComponentFactory = koin.get()

@@ -61,6 +61,9 @@ internal static class Program
             Log("Parent exited. Waiting 3s for file locks to release...");
             Thread.Sleep(3000);
 
+            KillOrphanedProcesses();
+            Thread.Sleep(2000);
+
             StripMarkOfTheWeb(opts.MsiPath);
 
             var backupDir = Path.Combine(
@@ -197,6 +200,33 @@ internal static class Program
         catch (ArgumentException)
         {
             // Process already gone — fine.
+        }
+    }
+
+    private static void KillOrphanedProcesses()
+    {
+        foreach (var name in new[] { "jcef_helper", "YallaSipPhone" })
+        {
+            try
+            {
+                foreach (var proc in Process.GetProcessesByName(name))
+                {
+                    try
+                    {
+                        proc.Kill(true);
+                        proc.WaitForExit(5000);
+                        Log($"Killed orphaned {name} pid={proc.Id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"WARN: could not kill {name} pid={proc.Id}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"WARN: process scan for {name} failed: {ex.Message}");
+            }
         }
     }
 

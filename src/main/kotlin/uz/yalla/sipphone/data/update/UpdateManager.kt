@@ -114,6 +114,8 @@ class UpdateManager(
     @Volatile
     private var installInProgress: Boolean = false
 
+    var onBeforeExit: (() -> Unit)? = null
+
     fun lastCheckMillis(): Long = lastCheckEpochMillis
     fun lastErrorMessage(): String? = lastError
     fun isInstallInProgress(): Boolean = installInProgress
@@ -157,6 +159,7 @@ class UpdateManager(
                     expectedSha256 = ready.release.installer.sha256,
                     logPath = paths.installLogPath(),
                 )
+                onBeforeExit?.invoke()
                 exitProcess(0)
             }.onFailure { t ->
                 logger.error(t) { "Installer failed to launch" }
