@@ -17,6 +17,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using Microsoft.Win32;
 
 namespace YallaUpdateBootstrap;
 
@@ -66,34 +67,70 @@ internal static class Program
 
             StripMarkOfTheWeb(opts.MsiPath);
 
-            var backupDir = Path.Combine(
-                Path.GetDirectoryName(opts.InstallDir) ?? opts.InstallDir,
-                "backup",
-                DateTime.Now.ToString("yyyyMMdd-HHmmss"));
-            Log($"Quarantining old install to {backupDir}");
-            try
-            {
-                if (Directory.Exists(opts.InstallDir))
-                {
-                    CopyDirectory(opts.InstallDir, backupDir);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"WARN: quarantine copy failed: {ex.Message}");
-            }
-
-            // Copy MSI out of the install directory BEFORE running msiexec.
-            // The source MSI lives at <installDir>/updates/*.msi. During an
-            // upgrade, WixRemoveFoldersEx nukes the install tree — including
-            // the updates/ folder — while msiexec is still reading the MSI.
-            // This corrupts the package source mid-transaction (SECREPAIR
-            // failure) and causes Error 1316 in ProcessComponents.
+            // Copy MSI to %TEMP% so it survives the install-directory cleanup.
             var tempMsi = Path.Combine(Path.GetTempPath(), Path.GetFileName(opts.MsiPath));
             File.Copy(opts.MsiPath, tempMsi, overwrite: true);
             Log($"Copied MSI to temp: {tempMsi}");
 
-            Log("Running msiexec...");
+            // --- Step 1: explicitly uninstall old version ---
+            // Doing /x then /i in two separate transactions avoids the
+            // RemoveExistingProducts nested-transaction registry errors
+            // (Error 1406 "Could not write value" during InstallFinalize).
+            var oldProductCode = FindInstalledProductCode();
+            if (oldProductCode != null)
+            {
+                Log($"Uninstalling old product {oldProductCode}...");
+                var uninstallLog = Path.Combine(Path.GetTempPath(), "yalla-update-uninstall.log");
+
+                // Release install.log before msiexec — it lives inside the install
+                // tree and msiexec needs exclusive access to the entire directory.
+                _log?.Flush();
+                _log?.Close();
+                _log = null;
+
+                var uPsi = new ProcessStartInfo("msiexec.exe")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                uPsi.ArgumentList.Add("/x");
+                uPsi.ArgumentList.Add(oldProductCode);
+                uPsi.ArgumentList.Add("/qn");
+                uPsi.ArgumentList.Add("/norestart");
+                uPsi.ArgumentList.Add("REBOOT=ReallySuppress");
+                uPsi.ArgumentList.Add("/L*v");
+                uPsi.ArgumentList.Add(uninstallLog);
+
+                var uProc = Process.Start(uPsi);
+                uProc?.WaitForExit();
+
+                _log = new StreamWriter(opts.LogPath, append: true) { AutoFlush = true };
+                Log($"Uninstall exit: {uProc?.ExitCode}");
+
+                // Give Windows Installer a moment to fully release everything
+                Thread.Sleep(2000);
+            }
+            else
+            {
+                Log("No existing product found in registry; skipping uninstall.");
+            }
+
+            // Clean up any leftover files (msiexec /x may leave user-created dirs)
+            try
+            {
+                if (Directory.Exists(opts.InstallDir))
+                {
+                    Directory.Delete(opts.InstallDir, recursive: true);
+                    Log("Cleaned leftover install directory.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"WARN: leftover cleanup failed: {ex.Message}");
+            }
+
+            // --- Step 2: fresh install of new version ---
+            Log("Installing new version...");
             var msiLog = Path.Combine(Path.GetTempPath(), "yalla-update-msiexec.log");
             var psi = new ProcessStartInfo("msiexec.exe")
             {
@@ -108,9 +145,6 @@ internal static class Program
             psi.ArgumentList.Add("/L*v");
             psi.ArgumentList.Add(msiLog);
 
-            // Release install.log before msiexec — it lives inside the install
-            // tree and msiexec needs exclusive access to the entire directory.
-            // Without this, msiexec hits error 1306 and exits 1603.
             _log?.Flush();
             _log?.Close();
             _log = null;
@@ -120,35 +154,22 @@ internal static class Program
             {
                 _log = new StreamWriter(opts.LogPath, append: true) { AutoFlush = true };
                 Log("ERROR: failed to start msiexec");
-                TryRestore(backupDir, opts.InstallDir);
                 return 4;
             }
             proc.WaitForExit();
             var exit = proc.ExitCode;
 
             _log = new StreamWriter(opts.LogPath, append: true) { AutoFlush = true };
-            Log($"msiexec exit: {exit}");
+            Log($"msiexec install exit: {exit}");
 
-            // Success codes: 0 OK, 3010 success + reboot required
             if (exit == 0 || exit == 3010)
             {
-                Log("Install success. Cleaning backup.");
-                TryDeleteDir(backupDir);
+                Log("Install success.");
                 LaunchApp(opts.InstallDir);
                 return 0;
             }
 
-            // User cancel / conflicting install — don't restore, relaunch old
-            if (exit == 1602 || exit == 1618)
-            {
-                Log("User cancelled or another install in progress; relaunching old exe.");
-                LaunchApp(opts.InstallDir);
-                return exit;
-            }
-
-            // Anything else: restore quarantine and relaunch
-            Log("Install failed; restoring quarantine.");
-            TryRestore(backupDir, opts.InstallDir);
+            Log($"Install failed with exit code {exit}.");
             LaunchApp(opts.InstallDir);
             return exit;
         }
@@ -195,6 +216,32 @@ internal static class Program
         var sb = new StringBuilder(hash.Length * 2);
         foreach (var b in hash) sb.Append(b.ToString("x2"));
         return sb.ToString();
+    }
+
+    private static string? FindInstalledProductCode()
+    {
+        try
+        {
+            using var uninstallKey = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Uninstall");
+            if (uninstallKey == null) return null;
+
+            foreach (var subKeyName in uninstallKey.GetSubKeyNames())
+            {
+                using var subKey = uninstallKey.OpenSubKey(subKeyName);
+                var displayName = subKey?.GetValue("DisplayName")?.ToString();
+                if (displayName == "YallaSipPhone")
+                {
+                    Log($"Found installed product: {subKeyName} ({displayName})");
+                    return subKeyName;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"WARN: registry search failed: {ex.Message}");
+        }
+        return null;
     }
 
     private static void WaitForParentExit(int parentPid)
@@ -254,56 +301,6 @@ internal static class Program
         catch (Exception ex)
         {
             Log($"WARN: strip MOTW failed: {ex.Message}");
-        }
-    }
-
-    private static void CopyDirectory(string source, string dest)
-    {
-        Directory.CreateDirectory(dest);
-        foreach (var f in Directory.GetFiles(source))
-        {
-            try
-            {
-                File.Copy(f, Path.Combine(dest, Path.GetFileName(f)), overwrite: true);
-            }
-            catch (Exception ex)
-            {
-                Log($"WARN: skip {Path.GetFileName(f)}: {ex.Message}");
-            }
-        }
-        foreach (var d in Directory.GetDirectories(source))
-        {
-            CopyDirectory(d, Path.Combine(dest, Path.GetFileName(d)));
-        }
-    }
-
-    private static void TryRestore(string backupDir, string installDir)
-    {
-        try
-        {
-            if (Directory.Exists(backupDir))
-            {
-                if (Directory.Exists(installDir))
-                    Directory.Delete(installDir, recursive: true);
-                CopyDirectory(backupDir, installDir);
-                Log("Restored backup into install dir");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log($"ERROR: restore failed: {ex.Message}");
-        }
-    }
-
-    private static void TryDeleteDir(string dir)
-    {
-        try
-        {
-            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
-        }
-        catch (Exception ex)
-        {
-            Log($"WARN: delete {dir} failed: {ex.Message}");
         }
     }
 
