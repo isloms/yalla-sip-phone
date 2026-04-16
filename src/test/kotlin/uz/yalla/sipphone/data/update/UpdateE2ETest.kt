@@ -137,7 +137,7 @@ class UpdateE2ETest {
         currentVersion: String = "1.0.0",
     ): UpdateManager {
         val paths = UpdatePaths(rootOverride = tempRoot)
-        val api = UpdateApi(client, baseUrl = "http://192.168.0.98:8080/api/v1/")
+        val api = UpdateApi(client, baseUrlProvider = { "http://192.168.0.98:8080/api/v1/" })
         val downloader = UpdateDownloader(client, paths)
         return UpdateManager(
             scope = scope,

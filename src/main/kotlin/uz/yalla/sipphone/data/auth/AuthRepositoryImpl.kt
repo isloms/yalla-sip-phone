@@ -3,6 +3,7 @@ package uz.yalla.sipphone.data.auth
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.delay
 import uz.yalla.sipphone.data.auth.dto.toAuthResult
+import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
 
@@ -11,6 +12,7 @@ private val logger = KotlinLogging.logger {}
 class AuthRepositoryImpl(
     private val authApi: AuthApi,
     private val tokenProvider: TokenProvider,
+    private val appSettings: AppSettings,
 ) : AuthRepository {
 
     override suspend fun login(pinCode: String): Result<AuthResult> {
@@ -35,8 +37,8 @@ class AuthRepositoryImpl(
 
         val authResult = meDto.toAuthResult(
             token = loginDto.token,
-            dispatcherUrl = ApiConfig.DISPATCHER_URL,
-            backendUrl = ApiConfig.BASE_URL,
+            dispatcherUrl = appSettings.dispatcherUrl,
+            backendUrl = appSettings.backendUrl,
         )
 
         if (authResult.accounts.isEmpty()) {

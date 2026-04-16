@@ -38,10 +38,12 @@ class AuthRepositoryImplTest {
         }
     }
 
+    private val appSettings = uz.yalla.sipphone.data.settings.AppSettings()
+
     private fun createRepo(handler: MockRequestHandler): AuthRepositoryImpl {
         val client = createClient(handler)
         val api = AuthApi(client, authEventBus)
-        return AuthRepositoryImpl(api, tokenProvider)
+        return AuthRepositoryImpl(api, tokenProvider, appSettings)
     }
 
     @Test
@@ -81,7 +83,7 @@ class AuthRepositoryImplTest {
         assertEquals("103", firstAccount.credentials.username)
         assertEquals("demo", firstAccount.credentials.password)
         assertEquals("UDP", firstAccount.credentials.transport)
-        assertEquals(ApiConfig.DISPATCHER_URL, authResult.dispatcherUrl)
+        assertEquals(appSettings.dispatcherUrl, authResult.dispatcherUrl)
 
         // Token should be stored
         assertNotNull(tokenProvider.getToken())

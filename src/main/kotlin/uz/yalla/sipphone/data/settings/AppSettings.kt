@@ -33,6 +33,14 @@ class AppSettings {
         )
     }
 
+    var backendUrl: String
+        get() = settings.getString("backend_url", "https://tmr.ngrok.app/api/v1/")
+        set(value) = settings.putString("backend_url", value)
+
+    var dispatcherUrl: String
+        get() = settings.getString("dispatcher_url", "http://192.168.0.60:5173")
+        set(value) = settings.putString("dispatcher_url", value)
+
     var updateChannel: String
         get() = settings.getString("update_channel", "stable")
         set(value) = settings.putString("update_channel", value)

@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
-import uz.yalla.sipphone.data.auth.ApiConfig
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.data.update.MsiBootstrapperInstaller
 import uz.yalla.sipphone.data.update.UpdateApi
@@ -26,7 +25,10 @@ val updateModule = module {
         CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName("updater"))
     }
     single { UpdatePaths() }
-    single { UpdateApi(client = get<HttpClient>(), baseUrl = ApiConfig.BASE_URL) }
+    single {
+        val settings: AppSettings = get()
+        UpdateApi(client = get<HttpClient>(), baseUrlProvider = { settings.backendUrl })
+    }
     single { UpdateDownloader(client = get(), paths = get()) }
     single { MsiBootstrapperInstaller() }
     single {

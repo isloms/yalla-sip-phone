@@ -30,7 +30,7 @@ sealed interface UpdateCheckResult {
  */
 class UpdateApi(
     private val client: HttpClient,
-    private val baseUrl: String,
+    private val baseUrlProvider: () -> String,
 ) {
 
     suspend fun check(
@@ -39,7 +39,7 @@ class UpdateApi(
         installId: String,
         platform: String = "windows",
     ): UpdateCheckResult {
-        val url = baseUrl.trimEnd('/') + "/app-updates/latest"
+        val url = baseUrlProvider().trimEnd('/') + "/app-updates/latest"
         val response: HttpResponse = try {
             client.get(url) {
                 header("X-App-Version", currentVersion)
