@@ -1,7 +1,9 @@
 package uz.yalla.sipphone.data.update
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 
@@ -78,6 +80,9 @@ class MsiBootstrapperInstaller(
     /**
      * Launches the bootstrapper. Caller MUST call `exitProcess(0)` immediately.
      * Throws if the bootstrapper or MSI is missing.
+     *
+     * The bootstrapper is copied to %TEMP% before launch so it doesn't hold
+     * a file lock inside the install directory while msiexec runs.
      */
     fun install(msiPath: Path, expectedSha256: String, logPath: Path) {
         if (!bootstrapperPath.exists()) {
@@ -88,7 +93,21 @@ class MsiBootstrapperInstaller(
             throw IllegalStateException("MSI missing: $msiPath")
         }
         stripMarkOfTheWeb(msiPath)
-        val cmd = buildCommand(msiPath, expectedSha256, logPath)
+
+        val tempDir = Path.of(System.getProperty("java.io.tmpdir"), "yalla-update")
+        Files.createDirectories(tempDir)
+        val tempBootstrapper = tempDir.resolve("yalla-update-bootstrap.exe")
+        Files.copy(bootstrapperPath, tempBootstrapper, StandardCopyOption.REPLACE_EXISTING)
+        logger.info { "Copied bootstrapper to $tempBootstrapper" }
+
+        val cmd = listOf(
+            tempBootstrapper.toString(),
+            "--msi", msiPath.toString(),
+            "--install-dir", installDir.toString(),
+            "--parent-pid", currentPid().toString(),
+            "--expected-sha256", expectedSha256,
+            "--log", logPath.toString(),
+        )
         logger.info { "Launching bootstrapper: $cmd" }
         processLauncher.launch(cmd)
     }

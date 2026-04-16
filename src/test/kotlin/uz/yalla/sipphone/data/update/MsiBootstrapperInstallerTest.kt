@@ -75,7 +75,7 @@ class MsiBootstrapperInstallerTest {
         val msi = tempRoot.resolve("a.msi").also { it.writeBytes(byteArrayOf(1)) }
         installer.install(msi, "a".repeat(64), tempRoot.resolve("log"))
         assertTrue(launcher.lastCommand != null)
-        assertEquals(boot.toString(), launcher.lastCommand!![0])
+        assertTrue(launcher.lastCommand!![0].contains("yalla-update-bootstrap.exe"))
     }
 }
 

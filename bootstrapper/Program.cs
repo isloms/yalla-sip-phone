@@ -84,7 +84,7 @@ internal static class Program
             }
 
             Log("Running msiexec...");
-            var msiLog = Path.Combine(Path.GetDirectoryName(opts.LogPath) ?? ".", "msiexec.log");
+            var msiLog = Path.Combine(Path.GetTempPath(), "yalla-update-msiexec.log");
             var psi = new ProcessStartInfo("msiexec.exe")
             {
                 UseShellExecute = false,
@@ -252,7 +252,14 @@ internal static class Program
         Directory.CreateDirectory(dest);
         foreach (var f in Directory.GetFiles(source))
         {
-            File.Copy(f, Path.Combine(dest, Path.GetFileName(f)), overwrite: true);
+            try
+            {
+                File.Copy(f, Path.Combine(dest, Path.GetFileName(f)), overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                Log($"WARN: skip {Path.GetFileName(f)}: {ex.Message}");
+            }
         }
         foreach (var d in Directory.GetDirectories(source))
         {
