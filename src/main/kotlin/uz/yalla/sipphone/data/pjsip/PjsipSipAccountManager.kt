@@ -1,11 +1,8 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlin.math.min
-import kotlin.random.Random
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -32,8 +29,7 @@ class PjsipSipAccountManager(
 
     private data class AccountSession(
         val info: SipAccountInfo,
-        var reconnectJob: Job? = null,
-        var reconnectAttempts: Int = 0,
+        val reconnect: ReconnectController,
     )
 
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
@@ -75,7 +71,15 @@ class PjsipSipAccountManager(
         if (accounts.isEmpty()) {
             return Result.failure(IllegalArgumentException("No accounts to register"))
         }
-        accounts.forEach { info -> sessions[info.id] = AccountSession(info) }
+        accounts.forEach { info ->
+            sessions[info.id] = AccountSession(
+                info = info,
+                reconnect = ReconnectController(scope) { attempt, backoffMs ->
+                    updateAccountState(info.id, SipAccountState.Reconnecting(attempt, backoffMs))
+                    logger.info { "[${info.id}] Reconnecting (attempt $attempt, backoff ${backoffMs / 1000}s)" }
+                },
+            )
+        }
 
         _accounts.value = accounts.map { info ->
             SipAccount(
@@ -131,7 +135,7 @@ class PjsipSipAccountManager(
     }
 
     override suspend fun unregisterAll() {
-        sessions.values.forEach { it.reconnectJob?.cancel() }
+        sessions.values.forEach { it.reconnect.stop() }
         sessions.clear()
         withContext(pjDispatcher) { accountManager.unregisterAll() }
         _accounts.update { list -> list.map { it.copy(state = SipAccountState.Disconnected) } }
@@ -154,42 +158,22 @@ class PjsipSipAccountManager(
             logger.error { "[$accountId] Cannot reconnect — no cached credentials" }
             return
         }
-        if (session.reconnectJob?.isActive == true) return
-        session.reconnectJob = scope.launch {
-            while (true) {
-                val attempt = ++session.reconnectAttempts
-                val backoffMs = calculateBackoff(attempt)
-                updateAccountState(accountId, SipAccountState.Reconnecting(attempt, backoffMs))
-                logger.info { "[$accountId] Reconnecting (attempt $attempt, backoff ${backoffMs / 1000}s)" }
-                delay(backoffMs)
-                val result = withContext(pjDispatcher) {
-                    accountManager.register(accountId, session.info.credentials)
-                }
-                if (result.isSuccess) break
-                logger.warn { "[$accountId] Reconnect attempt $attempt failed: ${result.exceptionOrNull()?.message}" }
+        session.reconnect.start {
+            val result = withContext(pjDispatcher) {
+                accountManager.register(accountId, session.info.credentials)
             }
+            result.onFailure {
+                logger.warn { "[$accountId] Reconnect attempt failed: ${it.message}" }
+            }
+            result
         }
     }
 
     private fun clearReconnect(accountId: String) {
-        sessions[accountId]?.let {
-            it.reconnectJob?.cancel()
-            it.reconnectJob = null
-            it.reconnectAttempts = 0
-        }
+        sessions[accountId]?.reconnect?.stop()
     }
 
     companion object {
-        private const val BASE_DELAY_MS = 1_000L
-        private const val MAX_DELAY_MS = 30_000L
-        private const val JITTER_BOUND_MS = 500
         private const val REGISTER_DELAY_MS = 500L
-
-        internal fun calculateBackoff(attempt: Int): Long {
-            val exponential = BASE_DELAY_MS * (1L shl min(attempt - 1, 20))
-            val capped = min(exponential, MAX_DELAY_MS)
-            val jitter = Random.nextLong(JITTER_BOUND_MS.toLong())
-            return capped + jitter
-        }
     }
 }
