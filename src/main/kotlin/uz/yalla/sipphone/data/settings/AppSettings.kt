@@ -34,11 +34,11 @@ class AppSettings {
     }
 
     var backendUrl: String
-        get() = settings.getString("backend_url", "http://192.168.60.117:8080/api/v1")
+        get() = settings.getString("backend_url", "https://tma.royaltaxi.uz")
         set(value) = settings.putString("backend_url", value)
 
     var dispatcherUrl: String
-        get() = settings.getString("dispatcher_url", "http://192.168.60.84:5173")
+        get() = settings.getString("dispatcher_url", "https://tma.dispatch.royaltaxi.uz")
         set(value) = settings.putString("dispatcher_url", value)
 
     var updateChannel: String
