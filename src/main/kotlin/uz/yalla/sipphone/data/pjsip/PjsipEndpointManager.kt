@@ -39,8 +39,8 @@ class PjsipEndpointManager(private val pjDispatcher: CoroutineContext) {
 
             logWriter = PjsipLogWriter()
             epConfig.logConfig.writer = logWriter
-            epConfig.logConfig.level = 5  // DEBUG: bumped for incoming call data inspection
-            epConfig.logConfig.consoleLevel = 5
+            epConfig.logConfig.level = 3
+            epConfig.logConfig.consoleLevel = 3
 
             endpoint.libInit(epConfig)
         } finally {

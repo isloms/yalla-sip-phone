@@ -77,15 +77,8 @@ class PjsipAccount(
             val wholeMsg = rdata.wholeMsg
             val srcAddress = rdata.srcAddress
             val info = rdata.info
-            logger.info {
-                """
-                |=== RAW SIP INVITE (onIncomingCall) ===
-                |  srcAddress: $srcAddress
-                |  info:       $info
-                |--- Full SIP Message ---
-                |$wholeMsg
-                |========================================
-                """.trimMargin()
+            logger.debug {
+                "RAW SIP INVITE: src=$srcAddress info=$info\n$wholeMsg"
             }
             accountManager.handleIncomingCall(accountId, callId)
         } catch (e: Exception) {

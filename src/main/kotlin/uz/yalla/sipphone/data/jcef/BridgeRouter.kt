@@ -116,7 +116,10 @@ class BridgeRouter(
                     )
                     callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
                 } catch (e: Exception) {
-                    logger.error(e) { "Bridge command failed: $request" }
+                    val cmdName = runCatching {
+                        bridgeJson.decodeFromString<BridgeCommand>(request).command
+                    }.getOrDefault("unknown")
+                    logger.error(e) { "Bridge command failed: $cmdName" }
                     val result = CommandResult.error("INTERNAL_ERROR", e.message ?: "Unknown error", false)
                     callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
                 }

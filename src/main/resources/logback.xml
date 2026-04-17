@@ -1,14 +1,36 @@
 <configuration>
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${yalla.log.dir:-${user.home}/.yalla-sip-phone/logs}/yalla-sip-phone.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${yalla.log.dir:-${user.home}/.yalla-sip-phone/logs}/yalla-sip-phone.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>1</maxHistory>
+            <totalSizeCap>50MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger{50} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- App code: INFO to console, DEBUG to file -->
     <logger name="uz.yalla.sipphone" level="DEBUG"/>
-    <logger name="pjsip.native" level="TRACE"/>
+
+    <!-- Ktor: one-liner per request/response -->
+    <logger name="ktor.http" level="INFO"/>
+
+    <!-- PJSIP: registration events, no full SIP message dumps -->
+    <logger name="pjsip.native" level="INFO"/>
 
     <root level="WARN">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
     </root>
 </configuration>

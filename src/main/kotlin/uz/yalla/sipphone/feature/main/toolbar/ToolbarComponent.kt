@@ -82,7 +82,7 @@ class ToolbarComponent(
     fun makeCall(number: String): Boolean {
         val validation = PhoneNumberValidator.validate(number)
         if (validation.isFailure) {
-            logger.warn { "Invalid phone number" }
+            logger.debug { "Invalid phone number input" }
             return false
         }
         val firstConnected = accounts.value.firstOrNull { it.state is SipAccountState.Connected }
@@ -122,7 +122,7 @@ class ToolbarComponent(
 
         // Cannot disconnect account with active call
         if (callState.value.activeAccountId == accountId && account.state is SipAccountState.Connected) {
-            logger.warn { "Cannot disconnect SIP account with active call: $accountId" }
+            logger.debug { "Cannot disconnect SIP account with active call: $accountId" }
             return
         }
 

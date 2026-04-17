@@ -334,23 +334,9 @@ class PjsipCallManager(
                 val role = info.role
                 val mediaCount = info.media?.size ?: 0
 
-                logger.info {
-                    """
-                    |=== INCOMING CALL DATA DUMP ===
-                    |  accountId:     $accountId
-                    |  callId (pj):   $callId
-                    |  callIdString:  $callIdString
-                    |  role:          $role
-                    |  stateText:     $stateText
-                    |  lastStatus:    $lastStatusCode
-                    |  lastReason:    $lastReason
-                    |  remoteUri:     $remoteUri
-                    |  remoteContact: $remoteContact
-                    |  localUri:      $localUri
-                    |  localContact:  $localContact
-                    |  mediaCount:    $mediaCount
-                    |===============================
-                    """.trimMargin()
+                logger.debug {
+                    "Incoming call detail: account=$accountId pjCallId=$callId " +
+                        "sipCallId=$callIdString remote=$remoteUri local=$localUri media=$mediaCount"
                 }
 
                 val callerInfo = parseRemoteUri(remoteUri)

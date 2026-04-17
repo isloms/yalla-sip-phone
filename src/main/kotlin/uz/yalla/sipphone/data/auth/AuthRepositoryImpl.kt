@@ -20,7 +20,6 @@ class AuthRepositoryImpl(
         val loginDto = loginResult.getOrElse { return Result.failure(it) }
 
         tokenProvider.setToken(loginDto.token)
-        logger.info { "Token received, fetching user info..." }
 
         // Don't emit SessionExpired on 401 during login — it's a login failure, not session expiry.
         // Retry once after delay — server may need time to persist token in session store.

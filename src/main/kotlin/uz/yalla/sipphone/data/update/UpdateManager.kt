@@ -237,7 +237,7 @@ class UpdateManager(
         // I4: pre-flight disk space. size × 2 covers .part + final .msi + bootstrapper quarantine.
         if (!hasEnoughDisk(release.installer.size * 2)) {
             lastError = "insufficient disk space for ${release.installer.size * 2} bytes"
-            logger.warn { lastError!! }
+            logger.warn { "Update skipped: $lastError" }
             _state.value = UpdateState.Failed(
                 UpdateState.Failed.Stage.DISK_FULL,
                 "size * 2 = ${release.installer.size * 2} bytes required",

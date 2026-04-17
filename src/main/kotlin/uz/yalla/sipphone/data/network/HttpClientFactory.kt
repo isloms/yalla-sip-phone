@@ -12,7 +12,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import uz.yalla.sipphone.data.auth.TokenProvider
 
-private val logger = KotlinLogging.logger {}
+private val httpLogger = KotlinLogging.logger("ktor.http")
 
 fun createHttpClient(
     tokenProvider: TokenProvider,
@@ -38,11 +38,10 @@ fun createHttpClient(
     install(Logging) {
         this.logger = object : Logger {
             override fun log(message: String) {
-                uz.yalla.sipphone.data.network.logger.debug { message }
+                httpLogger.info { message }
             }
         }
-        level = LogLevel.HEADERS
-        sanitizeHeader { header -> header == "Authorization" }
+        level = LogLevel.INFO
     }
 
     defaultRequest {

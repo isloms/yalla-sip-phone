@@ -16,7 +16,7 @@ class LogoutOrchestrator(
     suspend fun logout() {
         if (!logoutInProgress.compareAndSet(false, true)) return
         try {
-            logger.info { "Logout sequence starting..." }
+            logger.info { "Logout started" }
 
             runCatching { authApi.logout() }
                 .onFailure { logger.warn { "Server logout failed: ${it.message}" } }

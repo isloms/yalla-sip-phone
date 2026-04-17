@@ -189,11 +189,10 @@ class PjsipSipAccountManager(
 
                 val backoffMs = calculateBackoff(attempt)
                 updateAccountState(accountId, SipAccountState.Reconnecting(attempt, backoffMs))
-                logger.info { "[$accountId] Reconnect attempt $attempt — waiting ${backoffMs}ms" }
+                logger.info { "[$accountId] Reconnecting (attempt $attempt, backoff ${backoffMs / 1000}s)" }
 
                 delay(backoffMs)
 
-                logger.info { "[$accountId] Reconnect attempt $attempt — registering..." }
                 val result = withContext(pjDispatcher) {
                     accountManager.register(accountId, info.credentials)
                 }
