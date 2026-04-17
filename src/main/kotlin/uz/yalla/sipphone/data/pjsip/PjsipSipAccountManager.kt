@@ -30,11 +30,14 @@ class PjsipSipAccountManager(
     private val pjDispatcher: CoroutineDispatcher,
 ) : SipAccountManager {
 
-    private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
+    private data class AccountSession(
+        val info: SipAccountInfo,
+        var reconnectJob: Job? = null,
+        var reconnectAttempts: Int = 0,
+    )
 
-    private val credentialCache = mutableMapOf<String, SipAccountInfo>()
-    private val reconnectJobs = mutableMapOf<String, Job>()
-    private val reconnectAttempts = mutableMapOf<String, Int>()
+    private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
+    private val sessions = mutableMapOf<String, AccountSession>()
 
     private val _accounts = MutableStateFlow<List<SipAccount>>(emptyList())
     override val accounts: StateFlow<List<SipAccount>> = _accounts.asStateFlow()
@@ -50,15 +53,13 @@ class PjsipSipAccountManager(
     private fun handleRegistrationState(accountId: String, state: PjsipRegistrationState) {
         when (state) {
             is PjsipRegistrationState.Registered -> {
-                cancelReconnect(accountId)
-                reconnectAttempts.remove(accountId)
+                clearReconnect(accountId)
                 updateAccountState(accountId, SipAccountState.Connected)
                 logger.info { "[$accountId] Connected" }
             }
             is PjsipRegistrationState.Failed -> {
                 if (state.error is SipError.AuthFailed) {
-                    cancelReconnect(accountId)
-                    reconnectAttempts.remove(accountId)
+                    clearReconnect(accountId)
                     updateAccountState(accountId, SipAccountState.Disconnected)
                     logger.warn { "[$accountId] Auth failed — skipping reconnection" }
                 } else {
@@ -74,7 +75,7 @@ class PjsipSipAccountManager(
         if (accounts.isEmpty()) {
             return Result.failure(IllegalArgumentException("No accounts to register"))
         }
-        accounts.forEach { info -> credentialCache[info.id] = info }
+        accounts.forEach { info -> sessions[info.id] = AccountSession(info) }
 
         _accounts.value = accounts.map { info ->
             SipAccount(
@@ -109,12 +110,11 @@ class PjsipSipAccountManager(
     }
 
     override suspend fun connect(accountId: String): Result<Unit> {
-        val info = credentialCache[accountId]
+        val session = sessions[accountId]
             ?: return Result.failure(IllegalStateException("No cached credentials for $accountId"))
-        cancelReconnect(accountId)
-        reconnectAttempts.remove(accountId)
+        clearReconnect(accountId)
         return withContext(pjDispatcher) {
-            accountManager.register(accountId, info.credentials)
+            accountManager.register(accountId, session.info.credentials)
         }
     }
 
@@ -124,20 +124,17 @@ class PjsipSipAccountManager(
                 IllegalStateException("Cannot disconnect account $accountId — active call in progress"),
             )
         }
-        cancelReconnect(accountId)
-        reconnectAttempts.remove(accountId)
+        clearReconnect(accountId)
         withContext(pjDispatcher) { accountManager.unregister(accountId) }
         updateAccountState(accountId, SipAccountState.Disconnected)
         return Result.success(Unit)
     }
 
     override suspend fun unregisterAll() {
-        reconnectJobs.values.forEach { it.cancel() }
-        reconnectJobs.clear()
-        reconnectAttempts.clear()
+        sessions.values.forEach { it.reconnectJob?.cancel() }
+        sessions.clear()
         withContext(pjDispatcher) { accountManager.unregisterAll() }
         _accounts.update { list -> list.map { it.copy(state = SipAccountState.Disconnected) } }
-        credentialCache.clear()
     }
 
     fun destroy() {
@@ -153,21 +150,20 @@ class PjsipSipAccountManager(
     }
 
     private fun scheduleReconnect(accountId: String) {
-        if (reconnectJobs[accountId]?.isActive == true) return
-        val info = credentialCache[accountId] ?: run {
+        val session = sessions[accountId] ?: run {
             logger.error { "[$accountId] Cannot reconnect — no cached credentials" }
             return
         }
-        reconnectJobs[accountId] = scope.launch {
+        if (session.reconnectJob?.isActive == true) return
+        session.reconnectJob = scope.launch {
             while (true) {
-                val attempt = (reconnectAttempts[accountId] ?: 0) + 1
-                reconnectAttempts[accountId] = attempt
+                val attempt = ++session.reconnectAttempts
                 val backoffMs = calculateBackoff(attempt)
                 updateAccountState(accountId, SipAccountState.Reconnecting(attempt, backoffMs))
                 logger.info { "[$accountId] Reconnecting (attempt $attempt, backoff ${backoffMs / 1000}s)" }
                 delay(backoffMs)
                 val result = withContext(pjDispatcher) {
-                    accountManager.register(accountId, info.credentials)
+                    accountManager.register(accountId, session.info.credentials)
                 }
                 if (result.isSuccess) break
                 logger.warn { "[$accountId] Reconnect attempt $attempt failed: ${result.exceptionOrNull()?.message}" }
@@ -175,9 +171,12 @@ class PjsipSipAccountManager(
         }
     }
 
-    private fun cancelReconnect(accountId: String) {
-        reconnectJobs[accountId]?.cancel()
-        reconnectJobs.remove(accountId)
+    private fun clearReconnect(accountId: String) {
+        sessions[accountId]?.let {
+            it.reconnectJob?.cancel()
+            it.reconnectJob = null
+            it.reconnectAttempts = 0
+        }
     }
 
     companion object {
