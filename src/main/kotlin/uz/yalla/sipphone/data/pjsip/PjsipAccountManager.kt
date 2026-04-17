@@ -11,9 +11,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
-import org.pjsip.pjsua2.AccountConfig
-import org.pjsip.pjsua2.AuthCredInfo
-import org.pjsip.pjsua2.pjsua_stun_use
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.domain.SipError
@@ -76,7 +73,7 @@ class PjsipAccountManager(
             stateFlow.value = PjsipRegistrationState.Registering
         }
 
-        return buildAccountConfig(credentials).use { config ->
+        return AccountConfigBuilder.build(credentials).use { config ->
             runCatching {
                 val account = PjsipAccount(accountId, credentials.server, this).apply {
                     create(config, true)
@@ -149,23 +146,4 @@ class PjsipAccountManager(
         accounts.remove(accountId)
     }
 
-    private fun buildAccountConfig(credentials: SipCredentials): AccountConfig {
-        val config = AccountConfig()
-        AuthCredInfo(
-            SipConstants.AUTH_SCHEME_DIGEST,
-            SipConstants.AUTH_REALM_ANY,
-            credentials.username,
-            SipConstants.AUTH_DATA_TYPE_PLAINTEXT,
-            credentials.password,
-        ).use { authCred ->
-            config.idUri = SipConstants.buildUserUri(credentials.username, credentials.server)
-            config.regConfig.registrarUri = SipConstants.buildRegistrarUri(credentials.server, credentials.port)
-            // disable pjsip built-in retry — we handle reconnect
-            config.regConfig.retryIntervalSec = 0
-            config.sipConfig.authCreds.add(authCred)
-            config.natConfig.sipStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
-            config.natConfig.mediaStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
-        }
-        return config
-    }
 }
