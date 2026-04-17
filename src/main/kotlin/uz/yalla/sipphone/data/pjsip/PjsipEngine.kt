@@ -43,10 +43,6 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
         pjDispatcher = closeableDispatcher,
     )
 
-    init {
-        accountManager.incomingCallListener = callManager
-    }
-
     private fun isDestroyed(): Boolean = destroyed.get()
 
     override suspend fun initialize(): Result<Unit> = withContext(closeableDispatcher) {

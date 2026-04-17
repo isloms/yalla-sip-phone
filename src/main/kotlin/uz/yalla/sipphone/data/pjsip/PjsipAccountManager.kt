@@ -1,10 +1,14 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import org.pjsip.pjsua2.AccountConfig
@@ -16,17 +20,12 @@ import uz.yalla.sipphone.domain.SipError
 
 private val logger = KotlinLogging.logger {}
 
-interface IncomingCallListener {
-    fun onIncomingCall(accountId: String, callId: Int)
-}
-
-interface AccountRegistrationListener {
-    fun onAccountRegistrationState(accountId: String, state: PjsipRegistrationState)
-}
+data class IncomingCallEvent(val accountId: String, val callId: Int)
 
 interface AccountProvider {
     fun getAccount(accountId: String): PjsipAccount?
     fun getFirstConnectedAccount(): PjsipAccount?
+    val incomingCalls: SharedFlow<IncomingCallEvent>
 }
 
 class PjsipAccountManager(
@@ -34,151 +33,150 @@ class PjsipAccountManager(
 ) : AccountProvider {
 
     private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
-
     private val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
-
-    var incomingCallListener: IncomingCallListener? = null
-    var accountRegistrationListener: AccountRegistrationListener? = null
-
     private val lastRegisterAttemptMs = mutableMapOf<String, Long>()
 
-    fun getAccountStateFlow(accountId: String): StateFlow<PjsipRegistrationState> {
-        return _accountStates.getOrPut(accountId) {
-            MutableStateFlow(PjsipRegistrationState.Idle)
-        }.asStateFlow()
-    }
+    private val _incomingCalls = MutableSharedFlow<IncomingCallEvent>(extraBufferCapacity = 32)
+    override val incomingCalls: SharedFlow<IncomingCallEvent> = _incomingCalls.asSharedFlow()
+
+    private val _registrationEvents = MutableSharedFlow<Pair<String, PjsipRegistrationState>>(
+        extraBufferCapacity = 64,
+    )
+    val registrationEvents: SharedFlow<Pair<String, PjsipRegistrationState>> =
+        _registrationEvents.asSharedFlow()
 
     fun updateRegistrationState(accountId: String, state: PjsipRegistrationState) {
-        val flow = _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
-        flow.value = state
-        accountRegistrationListener?.onAccountRegistrationState(accountId, state)
+        stateFlowFor(accountId).value = state
+        _registrationEvents.tryEmit(accountId to state)
     }
 
     fun isAccountDestroyed(): Boolean = isDestroyed()
 
     fun handleIncomingCall(accountId: String, callId: Int) {
-        incomingCallListener?.onIncomingCall(accountId, callId)
+        _incomingCalls.tryEmit(IncomingCallEvent(accountId, callId))
     }
 
     override fun getAccount(accountId: String): PjsipAccount? = accounts[accountId]
 
-    override fun getFirstConnectedAccount(): PjsipAccount? {
-        return accounts.entries.firstOrNull { (id, _) ->
+    override fun getFirstConnectedAccount(): PjsipAccount? =
+        accounts.entries.firstOrNull { (id, _) ->
             _accountStates[id]?.value is PjsipRegistrationState.Registered
         }?.value
-    }
 
     suspend fun register(accountId: String, credentials: SipCredentials): Result<Unit> {
-        val stateFlow = _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
+        val stateFlow = stateFlowFor(accountId)
 
         if (stateFlow.value is PjsipRegistrationState.Registering) {
             return Result.failure(IllegalStateException("Registration already in progress for $accountId"))
         }
 
-        val now = System.currentTimeMillis()
-        val lastAttempt = lastRegisterAttemptMs[accountId] ?: 0L
-        val elapsed = now - lastAttempt
-        if (elapsed < SipConstants.RATE_LIMIT_MS) {
-            delay(SipConstants.RATE_LIMIT_MS - elapsed)
-        }
-        lastRegisterAttemptMs[accountId] = System.currentTimeMillis()
+        rateLimitRegister(accountId)
 
         val wasRegistered = stateFlow.value is PjsipRegistrationState.Registered
         stateFlow.value = PjsipRegistrationState.Registering
 
-        accounts[accountId]?.let { prevAccount ->
-            try {
-                prevAccount.setRegistration(false)
-            } catch (_: Exception) {
-                logger.warn { "[$accountId] setRegistration(false) threw — continuing teardown" }
-            }
-
-            if (wasRegistered) {
-                try {
-                    withTimeoutOrNull(SipConstants.Timeout.UNREGISTER_BEFORE_REREGISTER_MS) {
-                        stateFlow.first { it is PjsipRegistrationState.Idle }
-                    }
-                } catch (_: Exception) {}
-            }
+        accounts[accountId]?.let { prev ->
+            teardownPrevious(accountId, prev, stateFlow, wasRegistered)
             stateFlow.value = PjsipRegistrationState.Registering
-
-            prevAccount.safeDelete()
-            accounts.remove(accountId)
         }
 
-        val accountConfig = AccountConfig()
-        val authCred = AuthCredInfo(
-            SipConstants.AUTH_SCHEME_DIGEST,
-            SipConstants.AUTH_REALM_ANY,
-            credentials.username,
-            SipConstants.AUTH_DATA_TYPE_PLAINTEXT,
-            credentials.password,
-        )
-        try {
-            accountConfig.idUri = SipConstants.buildUserUri(credentials.username, credentials.server)
-            accountConfig.regConfig.registrarUri = SipConstants.buildRegistrarUri(credentials.server, credentials.port)
-            accountConfig.regConfig.retryIntervalSec = 0  // disable pjsip built-in retry — we handle reconnect
-            accountConfig.sipConfig.authCreds.add(authCred)
-            accountConfig.natConfig.sipStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
-            accountConfig.natConfig.mediaStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
-
-            val account = PjsipAccount(accountId, credentials.server, this).apply {
-                create(accountConfig, true)
+        return buildAccountConfig(credentials).use { config ->
+            runCatching {
+                val account = PjsipAccount(accountId, credentials.server, this).apply {
+                    create(config, true)
+                }
+                accounts[accountId] = account
+                logger.info { "[$accountId] Account created, awaiting registration callback" }
+            }.onFailure { e ->
+                logger.error(e) { "[$accountId] Registration failed" }
+                stateFlow.value = PjsipRegistrationState.Failed(SipError.fromException(e))
             }
-            accounts[accountId] = account
-
-            logger.info { "[$accountId] Account created, awaiting registration callback" }
-            return Result.success(Unit)
-        } catch (e: Exception) {
-            logger.error(e) { "[$accountId] Registration failed" }
-            stateFlow.value = PjsipRegistrationState.Failed(SipError.fromException(e))
-            return Result.failure(e)
-        } finally {
-            accountConfig.delete()
-            authCred.delete()
         }
     }
 
     suspend fun unregister(accountId: String) {
         val acc = accounts[accountId] ?: return
         val stateFlow = _accountStates[accountId] ?: return
-        try {
+        runCatching {
             acc.setRegistration(false)
             withTimeoutOrNull(SipConstants.Timeout.UNREGISTER_MS) {
                 stateFlow.first { it is PjsipRegistrationState.Idle }
             }
-        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-            logger.warn { "[$accountId] Unregistration timed out" }
-        } catch (e: Exception) {
-            logger.error(e) { "[$accountId] Unregister error" }
-        } finally {
-            acc.safeDelete()
-            accounts.remove(accountId)
-            stateFlow.value = PjsipRegistrationState.Idle
-        }
+        }.onFailure { logger.warn(it) { "[$accountId] Unregister error" } }
+        acc.safeDelete()
+        accounts.remove(accountId)
+        stateFlow.value = PjsipRegistrationState.Idle
     }
 
     suspend fun unregisterAll() {
-        val accountIds = accounts.keys.toList()
-        for (id in accountIds) {
-            unregister(id)
-        }
+        accounts.keys.toList().forEach { unregister(it) }
     }
 
     suspend fun destroy() {
-        val accountEntries = accounts.entries.toList()
-        for ((id, acc) in accountEntries) {
-            try {
-                acc.setRegistration(false)
-            } catch (_: Exception) {}
+        val activeAccounts = accounts.values.toList()
+        activeAccounts.forEach { acc ->
+            runCatching { acc.setRegistration(false) }
+                .onFailure { logger.warn(it) { "setRegistration(false) failed during destroy" } }
         }
-        delay(SipConstants.UNREGISTER_DELAY_MS)
-        for ((id, acc) in accountEntries) {
-            acc.safeDelete()
-        }
+        // Wait for PJSIP to report Idle on every account, bounded by DESTROY_MS.
+        withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) {
+            coroutineScope {
+                _accountStates.values
+                    .map { flow -> async { flow.first { it is PjsipRegistrationState.Idle } } }
+                    .awaitAll()
+            }
+        } ?: logger.warn { "destroy: timed out waiting for Idle" }
+        accounts.values.forEach { it.safeDelete() }
         accounts.clear()
         _accountStates.values.forEach { it.value = PjsipRegistrationState.Idle }
         _accountStates.clear()
         lastRegisterAttemptMs.clear()
+    }
+
+    private fun stateFlowFor(accountId: String): MutableStateFlow<PjsipRegistrationState> =
+        _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
+
+    private suspend fun rateLimitRegister(accountId: String) {
+        val last = lastRegisterAttemptMs[accountId] ?: 0L
+        val wait = SipConstants.RATE_LIMIT_MS - (System.currentTimeMillis() - last)
+        if (wait > 0) delay(wait)
+        lastRegisterAttemptMs[accountId] = System.currentTimeMillis()
+    }
+
+    private suspend fun teardownPrevious(
+        accountId: String,
+        prev: PjsipAccount,
+        stateFlow: MutableStateFlow<PjsipRegistrationState>,
+        wasRegistered: Boolean,
+    ) {
+        runCatching { prev.setRegistration(false) }
+            .onFailure { logger.warn(it) { "[$accountId] setRegistration(false) threw — continuing teardown" } }
+        if (wasRegistered) {
+            withTimeoutOrNull(SipConstants.Timeout.UNREGISTER_BEFORE_REREGISTER_MS) {
+                stateFlow.first { it is PjsipRegistrationState.Idle }
+            }
+        }
+        prev.safeDelete()
+        accounts.remove(accountId)
+    }
+
+    private fun buildAccountConfig(credentials: SipCredentials): AccountConfig {
+        val config = AccountConfig()
+        AuthCredInfo(
+            SipConstants.AUTH_SCHEME_DIGEST,
+            SipConstants.AUTH_REALM_ANY,
+            credentials.username,
+            SipConstants.AUTH_DATA_TYPE_PLAINTEXT,
+            credentials.password,
+        ).use { authCred ->
+            config.idUri = SipConstants.buildUserUri(credentials.username, credentials.server)
+            config.regConfig.registrarUri = SipConstants.buildRegistrarUri(credentials.server, credentials.port)
+            // disable pjsip built-in retry — we handle reconnect
+            config.regConfig.retryIntervalSec = 0
+            config.sipConfig.authCreds.add(authCred)
+            config.natConfig.sipStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
+            config.natConfig.mediaStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
+        }
+        return config
     }
 }

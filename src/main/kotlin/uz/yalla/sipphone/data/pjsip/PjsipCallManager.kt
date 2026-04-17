@@ -34,7 +34,7 @@ class PjsipCallManager(
     private val audioMediaProvider: AudioMediaProvider,
     private val isDestroyed: () -> Boolean,
     private val pjDispatcher: CoroutineContext,
-) : IncomingCallListener {
+) {
 
     private val _callState = MutableStateFlow<CallState>(CallState.Idle)
     val callState: StateFlow<CallState> = _callState.asStateFlow()
@@ -46,6 +46,12 @@ class PjsipCallManager(
     private var holdInProgress = false
     private var holdTimeoutJob: Job? = null
     private var hangupTimeoutJob: Job? = null
+
+    init {
+        scope.launch {
+            accountProvider.incomingCalls.collect { handleIncomingCall(it) }
+        }
+    }
 
     fun isCallManagerDestroyed(): Boolean = isDestroyed()
 
@@ -241,7 +247,9 @@ class PjsipCallManager(
         call.safeDelete()
     }
 
-    override fun onIncomingCall(accountId: String, callId: Int) {
+    private fun handleIncomingCall(event: IncomingCallEvent) {
+        val accountId = event.accountId
+        val callId = event.callId
         val acc = accountProvider.getAccount(accountId) ?: run {
             logger.warn { "Incoming call on unknown account $accountId — ignoring" }
             return
