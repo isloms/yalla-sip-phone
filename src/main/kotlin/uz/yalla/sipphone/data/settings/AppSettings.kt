@@ -34,7 +34,7 @@ class AppSettings {
     }
 
     var backendUrl: String
-        get() = settings.getString("backend_url", "http://192.168.60.84:8080/api/v1")
+        get() = settings.getString("backend_url", "http://192.168.60.117:8080/api/v1")
         set(value) = settings.putString("backend_url", value)
 
     var dispatcherUrl: String
