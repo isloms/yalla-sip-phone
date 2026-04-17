@@ -34,7 +34,7 @@ class AppSettings {
     }
 
     var backendUrl: String
-        get() = settings.getString("backend_url", "https://tma.royaltaxi.uz")
+        get() = settings.getString("backend_url", "https://tma.royaltaxi.uz/api/v1")
         set(value) = settings.putString("backend_url", value)
 
     var dispatcherUrl: String

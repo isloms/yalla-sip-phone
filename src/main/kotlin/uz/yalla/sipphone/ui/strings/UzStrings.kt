@@ -46,7 +46,7 @@ object UzStrings : StringResources {
     override val placeholderServer = "sip.example.com"
     override val placeholderUsername = "1001"
     override val placeholderDispatcherUrl = "https://tma.dispatch.royaltaxi.uz"
-    override val placeholderBackendUrl = "https://tma.royaltaxi.uz"
+    override val placeholderBackendUrl = "https://tma.royaltaxi.uz/api/v1"
 
     override val manualAddAccount = "Qo'shish"
     override val manualConnectAll = "Hammasini ulash"
