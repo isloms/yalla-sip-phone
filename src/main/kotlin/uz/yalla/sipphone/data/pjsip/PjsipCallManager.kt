@@ -7,9 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 import org.pjsip.pjsua2.AudioMedia
@@ -34,8 +32,8 @@ class PjsipCallManager(
     private val pjDispatcher: CoroutineContext,
 ) {
 
-    private val _callState = MutableStateFlow<CallState>(CallState.Idle)
-    val callState: StateFlow<CallState> = _callState.asStateFlow()
+    private val stateMachine = CallStateMachine()
+    val callState: StateFlow<CallState> get() = stateMachine.state
 
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
     private var active: ActiveCall? = null
@@ -84,28 +82,28 @@ class PjsipCallManager(
             resolvedAccountId = firstAcc.accountId
         }
 
-        return runCatching {
+        return runCatching<Unit> {
             val call = PjsipCall(this, acc)
             val uri = SipConstants.buildCallUri(number, acc.server)
             withCallOpParam { prm -> call.makeCall(uri, prm) }
             val id = UUID.randomUUID().toString()
             active = ActiveCall(call, id, resolvedAccountId)
-            _callState.value = CallState.Ringing(
-                callId = id,
-                callerNumber = number,
-                callerName = null,
-                isOutbound = true,
-                accountId = resolvedAccountId,
+            stateMachine.dispatch(
+                CallEvent.OutgoingDial(
+                    callId = id,
+                    remoteNumber = number,
+                    accountId = resolvedAccountId,
+                ),
             )
         }.onFailure {
             logger.error(it) { "makeCall failed on account $resolvedAccountId" }
-            _callState.value = CallState.Idle
+            resetCallState()
         }
     }
 
     suspend fun answerCall() {
         val call = active?.call ?: return
-        val ringing = _callState.value as? CallState.Ringing ?: return
+        val ringing = stateMachine.state.value as? CallState.Ringing ?: return
         if (ringing.isOutbound) return
         runCatching {
             withCallOpParam(statusCode = SipConstants.STATUS_OK) { prm -> call.answer(prm) }
@@ -115,13 +113,12 @@ class PjsipCallManager(
     suspend fun hangupCall() {
         val a = active ?: return
         runCatching {
-            _callState.value = CallState.Ending(callId = a.id, accountId = a.accountId)
+            stateMachine.dispatch(CallEvent.LocalHangup)
             withCallOpParam { prm -> a.call.hangup(prm) }
-            // Safety net: some PJSIP error paths never fire onCallDisconnected
             hangupTimeoutJob?.cancel()
             hangupTimeoutJob = scope.launch {
                 delay(HANGUP_TIMEOUT_MS)
-                if (_callState.value is CallState.Ending) {
+                if (stateMachine.state.value is CallState.Ending) {
                     logger.warn { "Hangup timeout — forcing Idle state" }
                     active?.call?.safeDelete()
                     resetCallState()
@@ -134,16 +131,17 @@ class PjsipCallManager(
     }
 
     suspend fun toggleMute() {
-        val state = _callState.value as? CallState.Active ?: return
+        val state = stateMachine.state.value as? CallState.Active ?: return
         val call = active?.call ?: return
         runCatching {
-            applyMuteState(call, muted = !state.isMuted)
-            _callState.value = state.copy(isMuted = !state.isMuted)
+            val nextMuted = !state.isMuted
+            applyMuteState(call, muted = nextMuted)
+            stateMachine.dispatch(CallEvent.MuteChanged(nextMuted))
         }.onFailure { logger.error(it) { "toggleMute failed" } }
     }
 
     suspend fun toggleHold() {
-        val state = _callState.value as? CallState.Active ?: return
+        val state = stateMachine.state.value as? CallState.Active ?: return
         val call = active?.call ?: return
         val targetHold = !state.isOnHold
         val issued = runCatching { issueHoldOp(call, targetHold) }
@@ -153,11 +151,11 @@ class PjsipCallManager(
             logger.warn { "Hold/resume operation already in progress or failed, ignoring" }
             return
         }
-        _callState.value = state.copy(isOnHold = targetHold)
+        stateMachine.dispatch(CallEvent.HoldChanged(targetHold))
     }
 
     suspend fun setMute(callId: String, muted: Boolean) {
-        val state = _callState.value as? CallState.Active ?: return
+        val state = stateMachine.state.value as? CallState.Active ?: return
         if (state.callId != callId) {
             logger.warn { "setMute: callId mismatch (expected=${state.callId}, got=$callId)" }
             return
@@ -166,12 +164,12 @@ class PjsipCallManager(
         val call = active?.call ?: return
         runCatching {
             applyMuteState(call, muted)
-            _callState.value = state.copy(isMuted = muted)
+            stateMachine.dispatch(CallEvent.MuteChanged(muted))
         }.onFailure { logger.error(it) { "setMute failed" } }
     }
 
     suspend fun setHold(callId: String, onHold: Boolean) {
-        val state = _callState.value as? CallState.Active ?: return
+        val state = stateMachine.state.value as? CallState.Active ?: return
         if (state.callId != callId) {
             logger.warn { "setHold: callId mismatch (expected=${state.callId}, got=$callId)" }
             return
@@ -185,26 +183,16 @@ class PjsipCallManager(
             logger.warn { "Hold/resume operation already in progress or failed, ignoring" }
             return
         }
-        _callState.value = state.copy(isOnHold = onHold)
+        stateMachine.dispatch(CallEvent.HoldChanged(onHold))
     }
 
     fun onCallConfirmed(call: PjsipCall) {
         if (call !== active?.call) return
-        when (val state = _callState.value) {
-            is CallState.Ending ->
-                logger.warn { "onCallConfirmed ignored — call already in Ending state" }
-            is CallState.Ringing -> _callState.value = CallState.Active(
-                callId = state.callId,
-                remoteNumber = state.callerNumber,
-                remoteName = state.callerName,
-                isOutbound = state.isOutbound,
-                isMuted = false,
-                isOnHold = false,
-                accountId = state.accountId,
-                remoteUri = state.remoteUri,
-            )
-            else -> {}
+        if (stateMachine.state.value is CallState.Ending) {
+            logger.warn { "onCallConfirmed ignored — call already in Ending state" }
+            return
         }
+        stateMachine.dispatch(CallEvent.Answered)
     }
 
     fun onCallDisconnected(call: PjsipCall) {
@@ -245,13 +233,14 @@ class PjsipCallManager(
                         "sipCallId=${info.callIdString} remote=$remoteUri local=${info.localUri} " +
                         "media=${info.media?.size ?: 0}"
                 }
-                _callState.value = CallState.Ringing(
-                    callId = id,
-                    callerNumber = callerInfo.number,
-                    callerName = callerInfo.displayName,
-                    isOutbound = false,
-                    accountId = accountId,
-                    remoteUri = remoteUri,
+                stateMachine.dispatch(
+                    CallEvent.IncomingRing(
+                        callId = id,
+                        remoteNumber = callerInfo.number,
+                        remoteName = callerInfo.displayName,
+                        accountId = accountId,
+                        remoteUri = remoteUri,
+                    ),
                 )
                 logger.info {
                     "Incoming call on $accountId from: ${callerInfo.displayName ?: callerInfo.number}"
@@ -303,7 +292,7 @@ class PjsipCallManager(
                 val playbackMedia = audioMediaProvider.getPlaybackDevMedia()
                 val captureMedia = audioMediaProvider.getCaptureDevMedia()
                 audioMedia.startTransmit(playbackMedia)
-                val isMuted = (_callState.value as? CallState.Active)?.isMuted == true
+                val isMuted = (stateMachine.state.value as? CallState.Active)?.isMuted == true
                 if (!isMuted) captureMedia.startTransmit(audioMedia)
                 logger.info { "Audio media connected for media index $i (muted=$isMuted)" }
                 runCatching {
@@ -330,7 +319,7 @@ class PjsipCallManager(
 
     private fun resetCallState() {
         active = null
-        _callState.value = CallState.Idle
+        stateMachine.dispatch(CallEvent.RemoteDisconnect)
     }
 
     companion object {
