@@ -1,9 +1,9 @@
 ---
 title: "Sessions Index"
-last_verified_sha: TBD
-last_updated: 2026-04-15
+last_verified_sha: 4bff1ba
+last_updated: 2026-04-17
 last_author: claude
-status: draft
+status: current
 tags: [sessions, index]
 ---
 
@@ -27,4 +27,6 @@ LIMIT 20
 
 ## Recent Sessions
 
-- _(empty — populated at session CLOSE)_
+- [[2026-04-17-sip-clean-code-refactor]] — refactor, data/pjsip, completed (4bff1ba)
+- [[2026-04-16-auto-update-msi-fix]] — fix, update/bootstrapper, completed (bfb118c)
+- [[2026-04-16-msi-update-debugging]] — debug, update/bootstrapper

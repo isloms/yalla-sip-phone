@@ -1,9 +1,9 @@
 ---
 title: "Decisions Index"
-last_verified_sha: TBD
-last_updated: 2026-04-15
+last_verified_sha: 4bff1ba
+last_updated: 2026-04-17
 last_author: claude
-status: draft
+status: current
 tags: [decisions, index, adr]
 ---
 
@@ -39,4 +39,4 @@ These are product-level decisions that affect all sessions:
 
 ## Session ADRs
 
-- _(empty — new decisions will be added here)_
+- [[2026-04-17-sip-clean-code-decomposition]] — Decompose SIP-layer god-classes into six focused single-responsibility components (accepted, 2026-04-17)
